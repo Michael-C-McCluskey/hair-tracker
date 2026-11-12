@@ -32,6 +32,11 @@ import {
   picks as sweepPicks,
   cycleCandidate,
   saveSweepPhotos,
+  startSweepPreview,
+  stopSweepStream,
+  attachSweepStream,
+  showSweepCameraError,
+  clearSweepCameraError,
   SWEEP_ASSET_URLS,
 } from "./sweep.js";
 
@@ -1061,7 +1066,6 @@ function registerSW() {
 
 /* ---------- video sweep ---------- */
 
-let sweepPreviewStream = null;
 const sweepUrls = new Map();
 
 function revokeSweepUrls() {
@@ -1069,48 +1073,42 @@ function revokeSweepUrls() {
   sweepUrls.clear();
 }
 
-function setSweepFacing(facing) {
-  sweep.facing = facing === "user" ? "user" : "environment";
+function syncSweepFacingButtons() {
   $("#sweep-facing-front")?.classList.toggle("is-active", sweep.facing === "user");
   $("#sweep-facing-rear")?.classList.toggle("is-active", sweep.facing === "environment");
-  const preview = $("#sweep-preview");
-  preview?.classList.toggle("is-front", sweep.facing === "user");
-  if ($("#view-sweep-setup") && !$("#view-sweep-setup").hidden) {
-    startSweepPreview();
-  }
+  $("#sweep-preview")?.classList.toggle("is-front", sweep.facing === "user");
+  $("#sweep-camera")?.classList.toggle("is-front", sweep.facing === "user");
 }
 
-async function startSweepPreview() {
-  const video = $("#sweep-preview");
-  if (!video) return;
-  stopSweepPreview();
+async function setSweepFacing(facing) {
+  sweep.facing = facing === "user" ? "user" : "environment";
+  syncSweepFacingButtons();
+  const setup = $("#view-sweep-setup");
+  if (!setup || setup.hidden) return;
   try {
-    if (!navigator.mediaDevices?.getUserMedia) return;
-    sweepPreviewStream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: { ideal: sweep.facing }, width: { ideal: 1280 }, height: { ideal: 960 } },
-    });
-    video.srcObject = sweepPreviewStream;
-    video.classList.toggle("is-front", sweep.facing === "user");
-    await video.play().catch(() => {});
+    clearSweepCameraError();
+    await startSweepPreview();
   } catch (err) {
     console.warn("Sweep preview unavailable:", err);
+    const msg = showSweepCameraError(err);
+    toast(msg);
   }
 }
 
 function stopSweepPreview() {
-  if (sweepPreviewStream) {
-    sweepPreviewStream.getTracks().forEach((t) => t.stop());
-    sweepPreviewStream = null;
-  }
-  const video = $("#sweep-preview");
-  if (video) video.srcObject = null;
+  stopSweepStream({ releaseTracks: true });
 }
 
 async function openSweepSetup() {
   showView("sweep-setup");
-  setSweepFacing(sweep.facing || "environment");
-  await startSweepPreview();
+  syncSweepFacingButtons();
+  try {
+    await startSweepPreview();
+  } catch (err) {
+    console.warn("Sweep preview unavailable:", err);
+    const msg = showSweepCameraError(err);
+    toast(msg);
+  }
   // Warm the on-device model so it's ready when the sweep starts.
   prepareSweep({ facing: sweep.facing, testMode: state.sweepTestMode }).catch(() => {});
 }
@@ -1119,8 +1117,10 @@ async function beginSweep(opts = {}) {
   const testMode = opts.testMode ?? state.sweepTestMode ?? false;
   sweep.testMode = testMode;
   sweep._starting = true;
-  stopSweepPreview();
-  navigate("#/sweep");
+  // Keep the setup preview stream alive and move it onto the sweep video.
+  // Stopping and reopening is what breaks the front camera on Android Chrome.
+  showView("sweep");
+  if (location.hash !== "#/sweep") location.hash = "#/sweep";
   try {
     const result = await runSweep({ facing: sweep.facing, testMode });
     if (result?.aborted) {
@@ -1130,7 +1130,8 @@ async function beginSweep(opts = {}) {
     navigate("#/sweep-review");
     return result;
   } catch (err) {
-    toast("Sweep failed — try the photo session, or start again.");
+    const msg = sweep.cameraError || "Sweep failed — try the photo session, or start again.";
+    toast(msg);
     navigate("#/home");
     throw err;
   } finally {
@@ -1235,8 +1236,12 @@ function bindEvents() {
   $("#btn-start-session").addEventListener("click", () => startSessionForDate(todayISO()));
   $("#btn-start-sweep").addEventListener("click", () => navigate("#/sweep-setup"));
   $("#btn-sweep-setup-back").addEventListener("click", () => navigate("#/home"));
-  $("#sweep-facing-front").addEventListener("click", () => setSweepFacing("user"));
-  $("#sweep-facing-rear").addEventListener("click", () => setSweepFacing("environment"));
+  $("#sweep-facing-front").addEventListener("click", () => {
+    setSweepFacing("user").catch((err) => console.warn(err));
+  });
+  $("#sweep-facing-rear").addEventListener("click", () => {
+    setSweepFacing("environment").catch((err) => console.warn(err));
+  });
   $("#btn-sweep-go").addEventListener("click", () => beginSweep());
   $("#btn-sweep-cancel").addEventListener("click", () => {
     cancelSweep();
@@ -1377,6 +1382,9 @@ window.HairTrack = {
   getPhotosForSession,
   sweep,
   beginSweep,
+  setSweepFacing,
+  startSweepPreview,
+  attachSweepStream,
   renderSweepReview,
   SWEEP_ASSET_URLS,
 };

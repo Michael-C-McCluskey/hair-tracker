@@ -109,6 +109,8 @@ export const sweep = {
   aborted: false,
   testMode: false,
   facing: "environment",
+  streamFacing: null,
+  cameraError: "",
   mediaPipe: "pending", // "ready" | "fallback" | "pending"
   landmarker: null,
   stream: null,
@@ -266,6 +268,8 @@ function poseFromLandmarks(landmarks) {
   const midY = (leftEye.y + rightEye.y) / 2;
   const iod = Math.hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y);
   if (iod < 0.01) return null;
+  // Always score the raw video pixels, which are unmirrored. CSS scaleX(-1)
+  // is preview-only (front camera), so do not invert yaw for a selfie stream.
   // Positive yaw: nose shifts left in the unmirrored frame = subject turned right = left temple.
   const yaw = ((midX - nose.x) / iod) * 80;
   // Positive pitch: nose sits lower than usual = chin tucked / forehead toward a front camera = top of head.
@@ -385,36 +389,208 @@ function isGoodEnough(score, pose, hasFace, seg) {
 
 /* ---------- camera + sampling ---------- */
 
-async function startSweepCamera(video) {
-  await stopSweepCamera(video);
-  const constraints = {
-    audio: false,
-    video: {
-      facingMode: { ideal: sweep.facing },
-      width: { ideal: 1920 },
-      height: { ideal: 1440 },
-    },
-  };
-  if (!navigator.mediaDevices?.getUserMedia) throw new Error("no camera");
-  const stream = await navigator.mediaDevices.getUserMedia(constraints);
-  sweep.stream = stream;
-  video.srcObject = stream;
-  video.classList.toggle("is-front", sweep.facing === "user");
-  video.hidden = false;
-  try {
-    await video.play();
-  } catch {
-    await new Promise((r) => setTimeout(r, 50));
-    await video.play().catch(() => {});
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function streamIsLive(stream) {
+  return !!(stream && stream.getVideoTracks().some((t) => t.readyState === "live"));
+}
+
+function sweepVideoEls() {
+  return [$("#sweep-preview"), $("#sweep-camera")].filter(Boolean);
+}
+
+function cameraErrorMessage(err) {
+  const name = err?.name || "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Camera permission is blocked. Allow the camera in Chrome, then try again.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return sweep.facing === "user"
+      ? "No front camera was found. Try the rear camera, or use a photo session."
+      : "No camera was found. Try the other camera, or use a photo session.";
+  }
+  if (sweep.facing === "user") {
+    return "Can't open the front camera. Try again, or switch to the rear camera.";
+  }
+  return "Can't open the camera. Try the other camera, or use a photo session.";
+}
+
+export function showSweepCameraError(err) {
+  const msg = typeof err === "string" ? err : cameraErrorMessage(err);
+  sweep.cameraError = msg;
+  for (const id of ["sweep-setup-error", "sweep-camera-error"]) {
+    const el = $(`#${id}`);
+    if (!el) continue;
+    el.textContent = msg;
+    el.hidden = false;
+  }
+  speak(msg);
+  return msg;
+}
+
+export function clearSweepCameraError() {
+  sweep.cameraError = "";
+  for (const id of ["sweep-setup-error", "sweep-camera-error"]) {
+    const el = $(`#${id}`);
+    if (!el) continue;
+    el.textContent = "";
+    el.hidden = true;
   }
 }
 
-async function stopSweepCamera(video) {
-  if (sweep.stream) {
-    sweep.stream.getTracks().forEach((t) => t.stop());
-    sweep.stream = null;
+function applyFrontMirror(facing) {
+  const isFront = facing === "user";
+  $("#sweep-preview")?.classList.toggle("is-front", isFront);
+  $("#sweep-camera")?.classList.toggle("is-front", isFront);
+}
+
+function trackFacing(stream) {
+  const track = stream?.getVideoTracks?.()[0];
+  if (!track) return null;
+  const settings = track.getSettings?.() || {};
+  if (settings.facingMode === "user" || settings.facingMode === "environment") {
+    return settings.facingMode;
   }
-  if (video) video.srcObject = null;
+  const label = track.label || "";
+  if (/front|user|selfie|facing\s*(user|front)/i.test(label)) return "user";
+  if (/back|rear|environment|facing\s*(back|environment)/i.test(label)) return "environment";
+  return null;
+}
+
+async function findFacingDeviceId(facing) {
+  if (!navigator.mediaDevices?.enumerateDevices) return null;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videos = devices.filter((d) => d.kind === "videoinput");
+    const re =
+      facing === "user"
+        ? /front|user|selfie|facing\s*(user|front)/i
+        : /back|rear|environment|facing\s*(back|environment)/i;
+    const match = videos.find((d) => re.test(d.label || ""));
+    return match?.deviceId || null;
+  } catch {
+    return null;
+  }
+}
+
+async function constraintAttempts(facing) {
+  const sized = { width: { ideal: 1920 }, height: { ideal: 1440 } };
+  const compact = { width: { ideal: 1280 }, height: { ideal: 960 } };
+  const attempts = [
+    { audio: false, video: { ...sized, facingMode: { ideal: facing } } },
+    { audio: false, video: { ...compact, facingMode: { ideal: facing } } },
+    { audio: false, video: { facingMode: facing } },
+  ];
+  const deviceId = await findFacingDeviceId(facing);
+  if (deviceId) {
+    attempts.push({ audio: false, video: { ...sized, deviceId: { exact: deviceId } } });
+    attempts.push({ audio: false, video: { ...compact, deviceId: { exact: deviceId } } });
+    attempts.push({ audio: false, video: { deviceId: { exact: deviceId } } });
+  }
+  return attempts;
+}
+
+async function playVideoOrThrow(video) {
+  try {
+    await video.play();
+    return;
+  } catch (err) {
+    await delay(50);
+    try {
+      await video.play();
+    } catch (err2) {
+      throw Object.assign(new Error(cameraErrorMessage(err2)), { cause: err2 });
+    }
+  }
+}
+
+let openGen = 0;
+
+/** Stop tracks (optional) and detach srcObject from both sweep videos. */
+export async function stopSweepStream({ releaseTracks = true } = {}) {
+  const stream = sweep.stream;
+  if (releaseTracks && stream) {
+    stream.getTracks().forEach((t) => t.stop());
+    sweep.stream = null;
+    sweep.streamFacing = null;
+  }
+  for (const el of sweepVideoEls()) el.srcObject = null;
+}
+
+/**
+ * Open (or reuse) the camera and attach it to `video`.
+ * Reuses the live stream when the facing hasn't changed so Android Chrome
+ * does not have to stop and reopen — that is what often breaks the front camera.
+ */
+export async function attachSweepStream(video, { facing, forceRestart = false } = {}) {
+  if (facing) sweep.facing = facing === "user" ? "user" : "environment";
+  const want = sweep.facing === "user" ? "user" : "environment";
+  if (!video) throw new Error("Camera preview is missing.");
+  applyFrontMirror(want);
+  clearSweepCameraError();
+
+  const gen = ++openGen;
+
+  if (!forceRestart && streamIsLive(sweep.stream) && sweep.streamFacing === want) {
+    for (const el of sweepVideoEls()) {
+      if (el !== video) el.srcObject = null;
+    }
+    if (video.srcObject !== sweep.stream) video.srcObject = sweep.stream;
+    video.hidden = false;
+    applyFrontMirror(want);
+    await playVideoOrThrow(video);
+    return sweep.stream;
+  }
+
+  await stopSweepStream({ releaseTracks: true });
+  await delay(80);
+  if (gen !== openGen) return null;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error("Can't open the camera. This browser has no camera access.");
+  }
+
+  const attempts = await constraintAttempts(want);
+  let lastErr = null;
+  for (const constraints of attempts) {
+    if (gen !== openGen) return null;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (gen !== openGen) {
+        stream.getTracks().forEach((t) => t.stop());
+        return null;
+      }
+      const got = trackFacing(stream);
+      // Only reject when we can positively tell this is the wrong camera.
+      if (got && got !== want) {
+        stream.getTracks().forEach((t) => t.stop());
+        lastErr = new Error("wrong camera");
+        continue;
+      }
+      sweep.stream = stream;
+      sweep.streamFacing = want;
+      for (const el of sweepVideoEls()) el.srcObject = null;
+      video.srcObject = stream;
+      video.hidden = false;
+      applyFrontMirror(want);
+      await playVideoOrThrow(video);
+      return stream;
+    } catch (err) {
+      lastErr = err;
+      await stopSweepStream({ releaseTracks: true });
+      await delay(80);
+    }
+  }
+  const fail = lastErr || new Error("Can't open the camera");
+  throw Object.assign(new Error(cameraErrorMessage(fail)), { cause: fail });
+}
+
+export async function startSweepPreview() {
+  const video = $("#sweep-preview");
+  if (!video) return null;
+  return attachSweepStream(video, { facing: sweep.facing });
 }
 
 async function captureJpeg(video, quality = 0.9) {
@@ -590,7 +766,7 @@ export async function runSweep({ facing, testMode } = {}) {
 
   const video = $("#sweep-camera");
   try {
-    if (!video.srcObject) await startSweepCamera(video);
+    await attachSweepStream(video, { facing: sweep.facing });
     const load = loadLandmarker();
     setStatus("Loading", "Setting up on-device tracking…");
     await Promise.race([
@@ -615,11 +791,12 @@ export async function runSweep({ facing, testMode } = {}) {
     return { aborted: false, captured, mediaPipe: sweep.mediaPipe };
   } catch (err) {
     console.error(err);
-    setStatus("Something went wrong", "You can try again, or use the photo session instead.");
+    const msg = showSweepCameraError(err);
+    setStatus("Something went wrong", msg || "You can try again, or use the photo session instead.");
     throw err;
   } finally {
     sweep.running = false;
-    await stopSweepCamera(video);
+    await stopSweepStream({ releaseTracks: true });
     silence();
   }
 }
@@ -634,15 +811,19 @@ export async function retakeSweepAngle(angleId) {
   unlockAudio();
   const video = $("#sweep-camera");
   try {
-    await startSweepCamera(video);
+    await attachSweepStream(video, { facing: sweep.facing });
     await loadLandmarker();
     if (!sweep.landmarker) sweep.mediaPipe = "fallback";
     const index = SEGMENTS.findIndex((s) => s.angleId === angleId);
     await countdown();
     if (!sweep.aborted) await runSegment(video, seg, index);
+  } catch (err) {
+    console.error(err);
+    showSweepCameraError(err);
+    throw err;
   } finally {
     sweep.running = false;
-    await stopSweepCamera(video);
+    await stopSweepStream({ releaseTracks: true });
     silence();
   }
 }
@@ -651,8 +832,7 @@ export function cancelSweep() {
   sweep.aborted = true;
   sweep.running = false;
   silence();
-  const video = $("#sweep-camera");
-  stopSweepCamera(video);
+  stopSweepStream({ releaseTracks: true });
 }
 
 export function picks() {

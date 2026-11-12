@@ -234,6 +234,7 @@
           <button type="button" class="seg-btn is-active" data-facing="environment" id="sweep-facing-rear">Rear</button>
         </div>
       </div>
+      <p id="sweep-setup-error" class="fallback-banner sweep-cam-error" hidden></p>
       <div class="sweep-setup-preview">
         <video id="sweep-preview" autoplay playsinline muted></video>
         <p class="hint">Line the phone up once, then start and look at the camera — not the screen.</p>
@@ -255,6 +256,7 @@
       </header>
       <div class="viewfinder sweep-viewfinder" id="sweep-viewfinder">
         <video id="sweep-camera" autoplay playsinline muted></video>
+        <p id="sweep-camera-error" class="fallback-banner sweep-cam-error" hidden></p>
         <div class="sweep-caption">
           <p id="sweep-detail" class="sweep-detail">Prop the phone and face the camera.</p>
           <div id="sweep-pips" class="sweep-pips" aria-hidden="true"></div>

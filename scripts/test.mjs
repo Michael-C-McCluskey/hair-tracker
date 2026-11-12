@@ -79,6 +79,69 @@ function loadFixtures() {
   return { dates, notes, angles, catalog };
 }
 
+
+/** Playwright init script: fresh fake camera streams, recorded getUserMedia calls. */
+function installFakeCamera() {
+  window.__gumCalls = [];
+  const makeStream = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 720;
+    canvas.height = 1280;
+    const ctx = canvas.getContext("2d");
+    const draw = () => {
+      ctx.fillStyle = "#241c18";
+      ctx.fillRect(0, 0, 720, 1280);
+      const t = Date.now() / 700;
+      ctx.fillStyle = "#4a342c";
+      ctx.beginPath();
+      ctx.ellipse(360, 620 + Math.sin(t) * 4, 170, 230, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#c4a080";
+      ctx.beginPath();
+      ctx.ellipse(360, 470, 175, 90, 0, Math.PI, Math.PI * 2, true);
+      ctx.fill();
+      ctx.fillStyle = "#2a1c18";
+      ctx.beginPath();
+      ctx.ellipse(310, 600, 16, 10, 0, 0, Math.PI * 2);
+      ctx.ellipse(410, 600, 16, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    draw();
+    setInterval(draw, 80);
+    return canvas.captureStream(12);
+  };
+  if (navigator.mediaDevices) {
+    navigator.mediaDevices.getUserMedia = async (constraints = {}) => {
+      window.__gumCalls.push(JSON.parse(JSON.stringify(constraints)));
+      return makeStream();
+    };
+    navigator.mediaDevices.enumerateDevices = async () => [
+      { deviceId: "front", kind: "videoinput", label: "Fake Front Camera", groupId: "cam" },
+      { deviceId: "back", kind: "videoinput", label: "Fake Rear Camera", groupId: "cam" },
+    ];
+  }
+}
+
+function facingFromGumConstraints(constraints) {
+  const video = constraints?.video;
+  if (!video || typeof video !== "object") return null;
+  const fm = video.facingMode;
+  if (typeof fm === "string") return fm;
+  if (fm && typeof fm === "object") return fm.ideal || fm.exact || null;
+  const id = video.deviceId?.exact || video.deviceId?.ideal || video.deviceId;
+  if (id === "front") return "user";
+  if (id === "back") return "environment";
+  return null;
+}
+
+function lastFacing(calls) {
+  for (let i = calls.length - 1; i >= 0; i--) {
+    const facing = facingFromGumConstraints(calls[i]);
+    if (facing) return facing;
+  }
+  return null;
+}
+
 async function seed(page, fixtures) {
   await page.evaluate(async ({ catalog, notes }) => {
     const HT = window.HairTrack;
@@ -202,41 +265,7 @@ async function main() {
     colorScheme: "dark",
   });
 
-  await context.addInitScript(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 720;
-    canvas.height = 1280;
-    const ctx = canvas.getContext("2d");
-    const draw = () => {
-      ctx.fillStyle = "#241c18";
-      ctx.fillRect(0, 0, 720, 1280);
-      const t = Date.now() / 700;
-      ctx.fillStyle = "#4a342c";
-      ctx.beginPath();
-      ctx.ellipse(360, 620 + Math.sin(t) * 4, 170, 230, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#c4a080";
-      ctx.beginPath();
-      ctx.ellipse(360, 470, 175, 90, 0, Math.PI, Math.PI * 2, true);
-      ctx.fill();
-      ctx.fillStyle = "#2a1c18";
-      ctx.beginPath();
-      ctx.ellipse(310, 600, 16, 10, 0, 0, Math.PI * 2);
-      ctx.ellipse(410, 600, 16, 10, 0, 0, Math.PI * 2);
-      ctx.fill();
-    };
-    draw();
-    const timer = setInterval(draw, 80);
-    const stream = canvas.captureStream(12);
-    if (navigator.mediaDevices) {
-      navigator.mediaDevices.getUserMedia = async () => { const canvas = document.createElement('canvas'); canvas.width=720; canvas.height=1280; const ctx=canvas.getContext('2d'); const draw=()=>{ctx.fillStyle='#241c18';ctx.fillRect(0,0,720,1280);ctx.fillStyle='#4a342c';ctx.beginPath();ctx.ellipse(360,620,170,230,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c4a080';ctx.beginPath();ctx.ellipse(360,470,175,90,0,Math.PI,Math.PI*2,true);ctx.fill();ctx.fillStyle='#2a1c18';ctx.beginPath();ctx.ellipse(310,600,16,10,0,0,Math.PI*2);ctx.ellipse(410,600,16,10,0,0,Math.PI*2);ctx.fill();}; draw(); setInterval(draw,80); return canvas.captureStream(12); };
-      navigator.mediaDevices.enumerateDevices = async () => [
-        { deviceId: "front", kind: "videoinput", label: "Fake Front Camera", groupId: "cam" },
-        { deviceId: "back", kind: "videoinput", label: "Fake Rear Camera", groupId: "cam" },
-      ];
-    }
-    window.__fakeCamTimer = timer;
-  });
+  await context.addInitScript(installFakeCamera);
 
   const page = await context.newPage();
   page.on("console", (msg) => {
@@ -401,30 +430,7 @@ async function main() {
           "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
         colorScheme: "dark",
       });
-      await ctx.addInitScript(() => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 720;
-        canvas.height = 1280;
-        const c = canvas.getContext("2d");
-        const draw = () => {
-          c.fillStyle = "#241c18";
-          c.fillRect(0, 0, 720, 1280);
-          c.fillStyle = "#4a342c";
-          c.beginPath();
-          c.ellipse(360, 620, 170, 230, 0, 0, Math.PI * 2);
-          c.fill();
-          c.fillStyle = "#c4a080";
-          c.beginPath();
-          c.ellipse(360, 470, 175, 90, 0, Math.PI, Math.PI * 2, true);
-          c.fill();
-        };
-        draw();
-        const stream = canvas.captureStream(12);
-        setInterval(draw, 80);
-        if (navigator.mediaDevices) {
-          navigator.mediaDevices.getUserMedia = async () => { const canvas = document.createElement('canvas'); canvas.width=720; canvas.height=1280; const ctx=canvas.getContext('2d'); const draw=()=>{ctx.fillStyle='#241c18';ctx.fillRect(0,0,720,1280);ctx.fillStyle='#4a342c';ctx.beginPath();ctx.ellipse(360,620,170,230,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c4a080';ctx.beginPath();ctx.ellipse(360,470,175,90,0,Math.PI,Math.PI*2,true);ctx.fill();ctx.fillStyle='#2a1c18';ctx.beginPath();ctx.ellipse(310,600,16,10,0,0,Math.PI*2);ctx.ellipse(410,600,16,10,0,0,Math.PI*2);ctx.fill();}; draw(); setInterval(draw,80); return canvas.captureStream(12); };
-        }
-      });
+      await ctx.addInitScript(installFakeCamera);
       const p2 = await ctx.newPage();
       p2.on("pageerror", (err) => errors.push(`layout pageerror: ${err.message}`));
       return p2;
@@ -585,8 +591,122 @@ async function main() {
     await layoutPage.evaluate(() => { window.HairTrack.state.sweepTestMode = true; });
     await layoutPage.click("#btn-start-sweep");
     await layoutPage.waitForSelector("#view-sweep-setup:not([hidden])", { timeout: 8000 });
+
+    await layoutPage.waitForFunction(() => {
+      const v = document.getElementById("sweep-preview");
+      return v && v.srcObject && v.readyState >= 2 && !v.paused;
+    }, { timeout: 8000 });
+    const defaultPreview = await layoutPage.evaluate(() => ({
+      facing: window.HairTrack.sweep.facing,
+      streamFacing: window.HairTrack.sweep.streamFacing,
+      isFront: document.getElementById("sweep-preview").classList.contains("is-front"),
+      calls: window.__gumCalls.slice(),
+    }));
+    pass(
+      "setup default preview uses rear camera",
+      defaultPreview.facing === "environment" &&
+        defaultPreview.streamFacing === "environment" &&
+        !defaultPreview.isFront &&
+        lastFacing(defaultPreview.calls) === "environment",
+      JSON.stringify({ ...defaultPreview, last: lastFacing(defaultPreview.calls) })
+    );
+
+    await layoutPage.click("#sweep-facing-front");
+    await layoutPage.waitForFunction(() => {
+      const v = document.getElementById("sweep-preview");
+      return (
+        window.HairTrack.sweep.facing === "user" &&
+        window.HairTrack.sweep.streamFacing === "user" &&
+        v &&
+        v.classList.contains("is-front") &&
+        v.srcObject &&
+        !v.paused &&
+        v.readyState >= 2
+      );
+    }, { timeout: 8000 });
+    const frontPreview = await layoutPage.evaluate(() => ({
+      facing: window.HairTrack.sweep.facing,
+      streamFacing: window.HairTrack.sweep.streamFacing,
+      isFront: document.getElementById("sweep-preview").classList.contains("is-front"),
+      transform: getComputedStyle(document.getElementById("sweep-preview")).transform,
+      calls: window.__gumCalls.slice(),
+    }));
+    pass(
+      "setup Front restarts preview with facingMode user",
+      frontPreview.facing === "user" &&
+        frontPreview.streamFacing === "user" &&
+        frontPreview.isFront &&
+        lastFacing(frontPreview.calls) === "user",
+      JSON.stringify({ ...frontPreview, last: lastFacing(frontPreview.calls) })
+    );
+    pass(
+      "front setup preview is CSS-mirrored",
+      /matrix\(-1|scaleX\(-/i.test(frontPreview.transform) || frontPreview.transform.includes("-1"),
+      frontPreview.transform
+    );
+
+    await layoutPage.click("#sweep-facing-rear");
+    await layoutPage.waitForFunction(() => {
+      const v = document.getElementById("sweep-preview");
+      return (
+        window.HairTrack.sweep.facing === "environment" &&
+        window.HairTrack.sweep.streamFacing === "environment" &&
+        v &&
+        !v.classList.contains("is-front") &&
+        v.srcObject &&
+        !v.paused
+      );
+    }, { timeout: 8000 });
+    const rearPreview = await layoutPage.evaluate(() => ({
+      facing: window.HairTrack.sweep.facing,
+      streamFacing: window.HairTrack.sweep.streamFacing,
+      isFront: document.getElementById("sweep-preview").classList.contains("is-front"),
+      calls: window.__gumCalls.slice(),
+    }));
+    pass(
+      "setup Rear restarts preview with facingMode environment",
+      rearPreview.facing === "environment" &&
+        rearPreview.streamFacing === "environment" &&
+        !rearPreview.isFront &&
+        lastFacing(rearPreview.calls) === "environment",
+      JSON.stringify({ ...rearPreview, last: lastFacing(rearPreview.calls) })
+    );
+
+    await layoutPage.click("#sweep-facing-front");
+    await layoutPage.waitForFunction(() => (
+      window.HairTrack.sweep.streamFacing === "user" &&
+      document.getElementById("sweep-preview")?.classList.contains("is-front")
+    ), { timeout: 8000 });
+    const gumBeforeFrontSweep = await layoutPage.evaluate(() => window.__gumCalls.length);
+
     await layoutPage.click("#btn-sweep-go");
     await layoutPage.waitForSelector("#view-sweep:not([hidden])", { timeout: 8000 });
+    await layoutPage.waitForFunction(() => {
+      const cam = document.getElementById("sweep-camera");
+      const preview = document.getElementById("sweep-preview");
+      return cam && cam.srcObject && cam.readyState >= 2 && !cam.paused && cam.videoWidth > 0 && preview && !preview.srcObject;
+    }, { timeout: 10000 });
+    const reusedFront = await layoutPage.evaluate(() => {
+      const cam = document.getElementById("sweep-camera");
+      const preview = document.getElementById("sweep-preview");
+      return {
+        gum: window.__gumCalls.length,
+        facing: window.HairTrack.sweep.facing,
+        streamFacing: window.HairTrack.sweep.streamFacing,
+        camFront: cam.classList.contains("is-front"),
+        camLive: !!(cam.srcObject && !cam.paused && cam.readyState >= 2 && cam.videoWidth > 0),
+        previewDetached: !preview.srcObject,
+      };
+    });
+    pass(
+      "front sweep reuses the setup stream (does not reopen the camera)",
+      reusedFront.gum === gumBeforeFrontSweep &&
+        reusedFront.camLive &&
+        reusedFront.camFront &&
+        reusedFront.previewDetached &&
+        reusedFront.facing === "user",
+      JSON.stringify({ gumBeforeFrontSweep, ...reusedFront })
+    );
     await layoutPage.waitForFunction(() => {
       const v = document.getElementById("sweep-camera");
       return v && v.videoWidth > 0 && v.readyState >= 2 && !v.paused;
@@ -630,6 +750,62 @@ async function main() {
 
     await layoutPage.screenshot({ path: path.join(SCREENSHOTS, "sweep-review.png"), fullPage: false });
     pass("screenshot sweep-review.png", fs.existsSync(path.join(SCREENSHOTS, "sweep-review.png")));
+    pass(
+      "front sweep produces 6 angle picks",
+      review.cards === 6 && review.imgs >= 6,
+      JSON.stringify(review)
+    );
+
+    await layoutPage.click("#btn-sweep-review-close");
+    await layoutPage.waitForSelector("#view-home:not([hidden])", { timeout: 8000 });
+    await layoutPage.evaluate(() => { window.HairTrack.state.sweepTestMode = true; });
+    await layoutPage.click("#btn-start-sweep");
+    await layoutPage.waitForSelector("#view-sweep-setup:not([hidden])", { timeout: 8000 });
+    await layoutPage.click("#sweep-facing-rear");
+    await layoutPage.waitForFunction(() => (
+      window.HairTrack.sweep.facing === "environment" &&
+      window.HairTrack.sweep.streamFacing === "environment" &&
+      document.getElementById("sweep-preview")?.srcObject
+    ), { timeout: 8000 });
+    const gumBeforeRearSweep = await layoutPage.evaluate(() => window.__gumCalls.length);
+    await layoutPage.click("#btn-sweep-go");
+    await layoutPage.waitForSelector("#view-sweep:not([hidden])", { timeout: 8000 });
+    await layoutPage.waitForFunction(() => {
+      const cam = document.getElementById("sweep-camera");
+      const preview = document.getElementById("sweep-preview");
+      return cam && cam.srcObject && cam.readyState >= 2 && !cam.paused && cam.videoWidth > 0 && preview && !preview.srcObject;
+    }, { timeout: 10000 });
+    const reusedRear = await layoutPage.evaluate(() => {
+      const cam = document.getElementById("sweep-camera");
+      const preview = document.getElementById("sweep-preview");
+      return {
+        gum: window.__gumCalls.length,
+        facing: window.HairTrack.sweep.facing,
+        camFront: cam.classList.contains("is-front"),
+        camLive: !!(cam.srcObject && !cam.paused && cam.readyState >= 2 && cam.videoWidth > 0),
+        previewDetached: !preview.srcObject,
+      };
+    });
+    pass(
+      "rear sweep reuses the setup stream (does not reopen the camera)",
+      reusedRear.gum === gumBeforeRearSweep &&
+        reusedRear.camLive &&
+        !reusedRear.camFront &&
+        reusedRear.previewDetached &&
+        reusedRear.facing === "environment",
+      JSON.stringify({ gumBeforeRearSweep, ...reusedRear })
+    );
+    await layoutPage.waitForSelector("#view-sweep-review:not([hidden])", { timeout: 30000 });
+    const rearReview = await layoutPage.evaluate(() => {
+      const cards = document.querySelectorAll("#sweep-review-list .sweep-card").length;
+      const imgs = document.querySelectorAll("#sweep-review-list img").length;
+      return { cards, imgs, mediaPipe: window.HairTrack.sweep.mediaPipe };
+    });
+    pass(
+      "rear sweep produces 6 angle picks",
+      rearReview.cards === 6 && rearReview.imgs >= 6,
+      JSON.stringify(rearReview)
+    );
 
     await layoutPage.click("#btn-sweep-save");
     await layoutPage.waitForSelector("#view-complete:not([hidden])", { timeout: 10000 });
