@@ -4,6 +4,7 @@ A mobile-first Progressive Web App for photographing your face and scalp from th
 
 ## What’s included
 
+- Hands-free **Video sweep**: spoken guidance and beeps while the phone stays propped up; on-device Face Landmarker picks the best still for each angle (or timing + sharpness if the model can’t load).
 - Guided capture: Front / hairline, Left temple, Right temple, Top (overhead), Crown, Back
 - Live camera via `getUserMedia`, with front/rear toggle and a file-picker fallback
 - Ghost overlay of the previous photo for that angle (adjustable opacity), plus a simple head guide when you don’t have a prior shot
@@ -68,6 +69,8 @@ sw.js                 Offline service worker
 css/styles.css
 js/db.js              IndexedDB, compression, backup
 js/app.js             UI, camera, compare, settings
+js/sweep.js           Hands-free video sweep and frame scoring
+vendor/mediapipe/     Face Landmarker wasm + model (loaded lazily, cached offline)
 icons/                PNG icons (any + maskable)
 fonts/                Vendored Plus Jakarta Sans
 vendor/jszip.min.js   Backup zip library

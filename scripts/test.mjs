@@ -29,6 +29,8 @@ const MIME = {
   ".woff2": "font/woff2",
   ".svg": "image/svg+xml",
   ".webmanifest": "application/manifest+json",
+  ".wasm": "application/wasm",
+  ".task": "application/octet-stream",
 };
 
 function startServer() {
@@ -227,7 +229,7 @@ async function main() {
     const timer = setInterval(draw, 80);
     const stream = canvas.captureStream(12);
     if (navigator.mediaDevices) {
-      navigator.mediaDevices.getUserMedia = async () => stream;
+      navigator.mediaDevices.getUserMedia = async () => { const canvas = document.createElement('canvas'); canvas.width=720; canvas.height=1280; const ctx=canvas.getContext('2d'); const draw=()=>{ctx.fillStyle='#241c18';ctx.fillRect(0,0,720,1280);ctx.fillStyle='#4a342c';ctx.beginPath();ctx.ellipse(360,620,170,230,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c4a080';ctx.beginPath();ctx.ellipse(360,470,175,90,0,Math.PI,Math.PI*2,true);ctx.fill();ctx.fillStyle='#2a1c18';ctx.beginPath();ctx.ellipse(310,600,16,10,0,0,Math.PI*2);ctx.ellipse(410,600,16,10,0,0,Math.PI*2);ctx.fill();}; draw(); setInterval(draw,80); return canvas.captureStream(12); };
       navigator.mediaDevices.enumerateDevices = async () => [
         { deviceId: "front", kind: "videoinput", label: "Fake Front Camera", groupId: "cam" },
         { deviceId: "back", kind: "videoinput", label: "Fake Rear Camera", groupId: "cam" },
@@ -418,8 +420,9 @@ async function main() {
         };
         draw();
         const stream = canvas.captureStream(12);
+        setInterval(draw, 80);
         if (navigator.mediaDevices) {
-          navigator.mediaDevices.getUserMedia = async () => stream;
+          navigator.mediaDevices.getUserMedia = async () => { const canvas = document.createElement('canvas'); canvas.width=720; canvas.height=1280; const ctx=canvas.getContext('2d'); const draw=()=>{ctx.fillStyle='#241c18';ctx.fillRect(0,0,720,1280);ctx.fillStyle='#4a342c';ctx.beginPath();ctx.ellipse(360,620,170,230,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c4a080';ctx.beginPath();ctx.ellipse(360,470,175,90,0,Math.PI,Math.PI*2,true);ctx.fill();ctx.fillStyle='#2a1c18';ctx.beginPath();ctx.ellipse(310,600,16,10,0,0,Math.PI*2);ctx.ellipse(410,600,16,10,0,0,Math.PI*2);ctx.fill();}; draw(); setInterval(draw,80); return canvas.captureStream(12); };
         }
       });
       const p2 = await ctx.newPage();
@@ -554,6 +557,97 @@ async function main() {
     await layoutPage.waitForTimeout(200);
     await controlsVisible("412x700");
 
+    // --- Video sweep (hands-free) ---
+    const assetChecks = await layoutPage.evaluate(async () => {
+      const urls = window.HairTrack.SWEEP_ASSET_URLS;
+      const paths = [
+        new URL("../vendor/mediapipe/vision_bundle.mjs", document.baseURI).href.replace(/\/index\.html$/, "/"),
+      ];
+      const list = [
+        urls.BUNDLE_URL,
+        urls.MODEL_URL,
+        urls.WASM_DIR.endsWith("/") ? urls.WASM_DIR + "vision_wasm_internal.wasm" : urls.WASM_DIR + "/vision_wasm_internal.wasm",
+        urls.WASM_DIR.endsWith("/") ? urls.WASM_DIR + "vision_wasm_internal.js" : urls.WASM_DIR + "/vision_wasm_internal.js",
+      ];
+      const results = [];
+      for (const u of list) {
+        const res = await fetch(u);
+        results.push({ url: u.split("/").slice(-2).join("/"), status: res.status, type: res.headers.get("content-type") || "", size: (await res.arrayBuffer()).byteLength });
+      }
+      return results;
+    });
+    const assetsOk = assetChecks.every((a) => a.status === 200 && a.size > 1000);
+    pass("MediaPipe assets load from local paths", assetsOk, JSON.stringify(assetChecks.map((a) => `${a.url}:${a.status}:${a.size}`)));
+
+    await layoutPage.setViewportSize({ width: 412, height: 780 });
+    await layoutPage.evaluate(() => (location.hash = "#/home"));
+    await layoutPage.waitForSelector("#view-home:not([hidden])", { timeout: 8000 });
+    await layoutPage.evaluate(() => { window.HairTrack.state.sweepTestMode = true; });
+    await layoutPage.click("#btn-start-sweep");
+    await layoutPage.waitForSelector("#view-sweep-setup:not([hidden])", { timeout: 8000 });
+    await layoutPage.click("#btn-sweep-go");
+    await layoutPage.waitForSelector("#view-sweep:not([hidden])", { timeout: 8000 });
+    await layoutPage.waitForFunction(() => {
+      const v = document.getElementById("sweep-camera");
+      return v && v.videoWidth > 0 && v.readyState >= 2 && !v.paused;
+    }, { timeout: 10000 }).catch(() => {});
+    await layoutPage.waitForTimeout(300);
+    await layoutPage.screenshot({ path: path.join(SCREENSHOTS, "sweep.png"), fullPage: false });
+    pass("screenshot sweep.png", fs.existsSync(path.join(SCREENSHOTS, "sweep.png")));
+
+    await layoutPage.waitForSelector("#view-sweep-review:not([hidden])", { timeout: 30000 });
+    const review = await layoutPage.evaluate(() => {
+      const rows = window.HairTrack.sweep && window.HairTrack.sweep.candidates
+        ? Object.fromEntries(Object.entries(window.HairTrack.sweep.candidates).map(([k, v]) => [k, v.length]))
+        : {};
+      const cards = document.querySelectorAll("#sweep-review-list .sweep-card").length;
+      const imgs = document.querySelectorAll("#sweep-review-list img").length;
+      return { cards, imgs, rows, mediaPipe: window.HairTrack.sweep.mediaPipe };
+    });
+    pass(
+      "sweep review has 6 angle picks",
+      review.cards === 6 && review.imgs >= 6,
+      JSON.stringify(review)
+    );
+
+    // Swap a candidate if more than one exists, then save.
+    const swapped = await layoutPage.evaluate(() => {
+      const next = document.querySelector("#sweep-review-list [data-cand][data-dir='1']");
+      if (!next) return { skipped: true };
+      const before = next.closest(".sweep-card").querySelector(".count")?.textContent;
+      next.click();
+      return { skipped: false, before };
+    });
+    if (!swapped.skipped) {
+      await layoutPage.waitForTimeout(150);
+      const after = await layoutPage.evaluate(() =>
+        [...document.querySelectorAll("#sweep-review-list .count")].map((el) => el.textContent)
+      );
+      pass("sweep review swap candidate", after.some((s) => /pick 2 of/i.test(s || "")), after.join(" | "));
+    } else {
+      pass("sweep review swap candidate", true, "only one candidate (swap control hidden)");
+    }
+
+    await layoutPage.screenshot({ path: path.join(SCREENSHOTS, "sweep-review.png"), fullPage: false });
+    pass("screenshot sweep-review.png", fs.existsSync(path.join(SCREENSHOTS, "sweep-review.png")));
+
+    await layoutPage.click("#btn-sweep-save");
+    await layoutPage.waitForSelector("#view-complete:not([hidden])", { timeout: 10000 });
+    const savedSweep = await layoutPage.evaluate(async () => {
+      const HT = window.HairTrack;
+      const sessions = await HT.getAllSessions();
+      const today = HT.todayISO();
+      const todays = sessions.find((s) => s.date === today);
+      if (!todays) return { ok: false };
+      const photos = await HT.getPhotosForSession(todays.id);
+      return { ok: true, count: photos.length, angles: photos.map((p) => p.angleId) };
+    });
+    pass(
+      "sweep save writes a full session",
+      !!(savedSweep.ok && savedSweep.count >= 6 && ["front", "left-temple", "right-temple", "top", "crown", "back"].every((a) => savedSweep.angles.includes(a))),
+      JSON.stringify(savedSweep)
+    );
+
     const unexpected = errors.filter((e) => {
       // Benign: some Chrome installs log about service worker cache or DevTools
       if (/Deprecated/i.test(e)) return false;
@@ -576,7 +670,7 @@ async function main() {
   }
   console.log("All checks passed.");
   console.log("Screenshots:");
-  for (const name of ["home.png", "capture-ghost.png", "compare.png", "guide-front.png", "guide-left.png", "guide-crown.png"]) {
+  for (const name of ["home.png", "capture-ghost.png", "compare.png", "guide-front.png", "guide-left.png", "guide-crown.png", "sweep.png", "sweep-review.png"]) {
     const p = path.join(SCREENSHOTS, name);
     const st = fs.statSync(p);
     console.log(`  ${p}  (${st.size} bytes)`);

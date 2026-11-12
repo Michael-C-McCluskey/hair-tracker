@@ -1,5 +1,5 @@
 /* Hair Track service worker — cache the app shell for offline use. */
-const CACHE = "hair-track-v3";
+const CACHE = "hair-track-v4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "./css/styles.css",
   "./js/db.js",
   "./js/app.js",
+  "./js/sweep.js",
   "./vendor/jszip.min.js",
   "./fonts/plus-jakarta-sans.woff2",
   "./fonts/plus-jakarta-sans-latin-ext.woff2",
@@ -44,10 +45,13 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  const isMediaPipe = url.pathname.includes("/vendor/mediapipe/");
   event.respondWith(
     (async () => {
       const cache = await caches.open(CACHE);
       const cached = await cache.match(req, { ignoreSearch: true });
+      // Large wasm/model: cache-first after the first successful fetch (lazy cache).
+      if (isMediaPipe && cached) return cached;
       try {
         const fresh = await fetch(req);
         if (fresh.ok) cache.put(req, fresh.clone());

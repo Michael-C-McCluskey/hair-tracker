@@ -22,6 +22,18 @@ import {
   exportBackup,
   importBackup,
 } from "./db.js";
+import {
+  sweep,
+  SEGMENTS,
+  prepareSweep,
+  runSweep,
+  retakeSweepAngle,
+  cancelSweep,
+  picks as sweepPicks,
+  cycleCandidate,
+  saveSweepPhotos,
+  SWEEP_ASSET_URLS,
+} from "./sweep.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -75,10 +87,17 @@ async function route() {
   const toastEl = $("#toast");
   if (toastEl) toastEl.hidden = true;
   const { view, rest } = parseHash();
-  const fullscreen = view === "capture" || view === "complete";
+  const fullscreen = ["capture", "complete", "sweep", "sweep-setup", "sweep-review"].includes(view);
   $("#tabbar").classList.toggle("is-hidden", fullscreen);
 
   if (view !== "capture") await stopCamera();
+  if (view !== "sweep" && view !== "sweep-setup") {
+    // Don't cancel an in-flight sweep just to show the review screen — runSweep already stopped the camera.
+    if (view !== "sweep-review") {
+      stopSweepPreview();
+      if (sweep.running) cancelSweep();
+    }
+  }
 
   $$(".tab").forEach((t) => t.classList.toggle("is-active", t.dataset.nav === view || (view === "session" && t.dataset.nav === "timeline")));
 
@@ -95,6 +114,12 @@ async function route() {
   else if (view === "settings") await renderSettings();
   else if (view === "capture") await startCapture(rest[0]);
   else if (view === "complete") await renderComplete();
+  else if (view === "sweep-setup") await openSweepSetup();
+  else if (view === "sweep") {
+    showView("sweep");
+    if (!sweep.running && !sweep._starting) navigate("#/sweep-setup");
+  }
+  else if (view === "sweep-review") renderSweepReview();
   else {
     showView("home");
     await renderHome();
@@ -173,7 +198,7 @@ async function renderHome() {
       <div class="days">—</div>
       <p class="days-label">No sessions yet</p>
       <p class="hint">Take the same six angles every week or so. Photos stay on this phone.</p>`;
-    startBtn.textContent = "Start first session";
+    startBtn.textContent = "Photo session";
   } else {
     const today = todayISO();
     const lastDate = last.date;
@@ -197,9 +222,9 @@ async function renderHome() {
     if (todaySession) {
       const photos = await getPhotosForSession(todaySession.id);
       const n = photos.length;
-      startBtn.textContent = n >= ANGLES.length ? "Retake today’s photos" : `Continue today’s session · ${n} of ${ANGLES.length}`;
+      startBtn.textContent = n >= ANGLES.length ? "Retake today’s photos" : `Continue today’s photos · ${n} of ${ANGLES.length}`;
     } else {
-      startBtn.textContent = "Start session";
+      startBtn.textContent = "Photo session";
     }
   }
 
@@ -1033,11 +1058,192 @@ function registerSW() {
   }
 }
 
+
+/* ---------- video sweep ---------- */
+
+let sweepPreviewStream = null;
+const sweepUrls = new Map();
+
+function revokeSweepUrls() {
+  for (const url of sweepUrls.values()) URL.revokeObjectURL(url);
+  sweepUrls.clear();
+}
+
+function setSweepFacing(facing) {
+  sweep.facing = facing === "user" ? "user" : "environment";
+  $("#sweep-facing-front")?.classList.toggle("is-active", sweep.facing === "user");
+  $("#sweep-facing-rear")?.classList.toggle("is-active", sweep.facing === "environment");
+  const preview = $("#sweep-preview");
+  preview?.classList.toggle("is-front", sweep.facing === "user");
+  if ($("#view-sweep-setup") && !$("#view-sweep-setup").hidden) {
+    startSweepPreview();
+  }
+}
+
+async function startSweepPreview() {
+  const video = $("#sweep-preview");
+  if (!video) return;
+  stopSweepPreview();
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    sweepPreviewStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: sweep.facing }, width: { ideal: 1280 }, height: { ideal: 960 } },
+    });
+    video.srcObject = sweepPreviewStream;
+    video.classList.toggle("is-front", sweep.facing === "user");
+    await video.play().catch(() => {});
+  } catch (err) {
+    console.warn("Sweep preview unavailable:", err);
+  }
+}
+
+function stopSweepPreview() {
+  if (sweepPreviewStream) {
+    sweepPreviewStream.getTracks().forEach((t) => t.stop());
+    sweepPreviewStream = null;
+  }
+  const video = $("#sweep-preview");
+  if (video) video.srcObject = null;
+}
+
+async function openSweepSetup() {
+  showView("sweep-setup");
+  setSweepFacing(sweep.facing || "environment");
+  await startSweepPreview();
+  // Warm the on-device model so it's ready when the sweep starts.
+  prepareSweep({ facing: sweep.facing, testMode: state.sweepTestMode }).catch(() => {});
+}
+
+async function beginSweep(opts = {}) {
+  const testMode = opts.testMode ?? state.sweepTestMode ?? false;
+  sweep.testMode = testMode;
+  sweep._starting = true;
+  stopSweepPreview();
+  navigate("#/sweep");
+  try {
+    const result = await runSweep({ facing: sweep.facing, testMode });
+    if (result?.aborted) {
+      navigate("#/home");
+      return result;
+    }
+    navigate("#/sweep-review");
+    return result;
+  } catch (err) {
+    toast("Sweep failed — try the photo session, or start again.");
+    navigate("#/home");
+    throw err;
+  } finally {
+    sweep._starting = false;
+  }
+}
+
+function renderSweepReview() {
+  showView("sweep-review");
+  const rows = sweepPicks();
+  const captured = rows.filter((r) => r.pick).length;
+  $("#sweep-review-meta").textContent = `${captured} of ${ANGLES.length} angles ready`;
+  const note = $("#sweep-fallback-note");
+  if (note) note.hidden = sweep.mediaPipe !== "fallback";
+  revokeSweepUrls();
+  const list = $("#sweep-review-list");
+  list.innerHTML = rows
+    .map((row) => {
+      const angle = ANGLES.find((a) => a.id === row.angleId);
+      const n = row.list.length;
+      const img = row.pick
+        ? `<img alt="${esc(angle?.name || row.title)}" src="${(sweepUrls.set(row.angleId + ":" + row.chosen, URL.createObjectURL(row.pick.blob)), sweepUrls.get(row.angleId + ":" + row.chosen))}">`
+        : `<div class="empty">No frame captured</div>`;
+      const swap =
+        n > 1
+          ? `<div class="btn-row">
+              <button type="button" class="btn btn-secondary" data-cand="${row.angleId}" data-dir="-1">Previous</button>
+              <button type="button" class="btn btn-secondary" data-cand="${row.angleId}" data-dir="1">Next pick</button>
+            </div>`
+          : "";
+      return `<article class="sweep-card" data-angle="${row.angleId}">
+        <div class="sweep-card-photo">${img}</div>
+        <div class="sweep-card-body">
+          <div class="sweep-card-head">
+            <h2>${esc(angle?.name || row.title)}</h2>
+            <span class="count">${n ? `Pick ${row.chosen + 1} of ${n}` : "Missing"}</span>
+          </div>
+          ${swap}
+          <div class="btn-row">
+            <button type="button" class="btn btn-secondary" data-retake="${row.angleId}">Retake this angle</button>
+          </div>
+        </div>
+      </article>`;
+    })
+    .join("");
+  list.querySelectorAll("[data-cand]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      cycleCandidate(btn.dataset.cand, Number(btn.dataset.dir));
+      renderSweepReview();
+    });
+  });
+  list.querySelectorAll("[data-retake]").forEach((btn) => {
+    btn.addEventListener("click", () => retakeSweepFromReview(btn.dataset.retake));
+  });
+}
+
+async function retakeSweepFromReview(angleId) {
+  sweep._starting = true;
+  navigate("#/sweep");
+  try {
+    await retakeSweepAngle(angleId);
+  } finally {
+    sweep._starting = false;
+  }
+  navigate("#/sweep-review");
+}
+
+async function saveSweepSession() {
+  const rows = sweepPicks();
+  if (!rows.some((r) => r.pick)) {
+    toast("No frames to save");
+    return;
+  }
+  const session = await upsertSession({
+    date: todayISO(),
+    notes: $("#sweep-notes")?.value || "",
+  });
+  let n = 0;
+  for (const row of rows) {
+    if (!row.pick?.blob) continue;
+    const compressed = await compressImage(row.pick.blob);
+    await savePhoto({
+      sessionId: session.id,
+      angleId: row.angleId,
+      blob: compressed.blob,
+      width: compressed.width,
+      height: compressed.height,
+    });
+    n += 1;
+  }
+  if ($("#sweep-notes")?.value) await saveSessionNotes(session.id, $("#sweep-notes").value);
+  toast(`Saved ${n} of ${ANGLES.length} angles`);
+  revokeSweepUrls();
+  state.sessionId = session.id;
+  navigate("#/complete");
+}
+
 /* ---------- events ---------- */
 
 function bindEvents() {
   window.addEventListener("hashchange", route);
   $("#btn-start-session").addEventListener("click", () => startSessionForDate(todayISO()));
+  $("#btn-start-sweep").addEventListener("click", () => navigate("#/sweep-setup"));
+  $("#btn-sweep-setup-back").addEventListener("click", () => navigate("#/home"));
+  $("#sweep-facing-front").addEventListener("click", () => setSweepFacing("user"));
+  $("#sweep-facing-rear").addEventListener("click", () => setSweepFacing("environment"));
+  $("#btn-sweep-go").addEventListener("click", () => beginSweep());
+  $("#btn-sweep-cancel").addEventListener("click", () => {
+    cancelSweep();
+    navigate("#/home");
+  });
+  $("#btn-sweep-review-close").addEventListener("click", () => navigate("#/home"));
+  $("#btn-sweep-save").addEventListener("click", () => saveSweepSession());
   $("#btn-other-date").addEventListener("click", () => {
     const picker = $("#date-picker");
     picker.value = todayISO();
@@ -1169,4 +1375,8 @@ window.HairTrack = {
   getSetting,
   setSetting,
   getPhotosForSession,
+  sweep,
+  beginSweep,
+  renderSweepReview,
+  SWEEP_ASSET_URLS,
 };

@@ -30,7 +30,8 @@
         </div>
       </header>
       <div id="home-reminder" class="reminder-card"></div>
-      <button type="button" id="btn-start-session" class="btn btn-primary btn-block">Start session</button>
+      <button type="button" id="btn-start-session" class="btn btn-primary btn-block">Photo session</button>
+      <button type="button" id="btn-start-sweep" class="btn btn-secondary btn-block">Video sweep (hands-free)</button>
       <p class="alt-date-wrap">
         <button type="button" id="btn-other-date" class="link-btn">Or log a different date</button>
       </p>
@@ -210,6 +211,74 @@
       <label class="notes-label" for="complete-notes">Notes for this session</label>
       <textarea id="complete-notes" class="notes-input" rows="3" placeholder="Treatment, shedding, haircut, lighting…"></textarea>
       <button type="button" id="btn-complete-done" class="btn btn-primary btn-block">Done</button>
+    </section>
+
+    <!-- SWEEP SETUP -->
+    <section class="view" id="view-sweep-setup" data-view="sweep-setup" hidden>
+      <header class="page-header page-header-row">
+        <button type="button" class="icon-btn" id="btn-sweep-setup-back" aria-label="Back">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15.5 5.5 9 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="header-titles">
+          <h1>Video sweep</h1>
+          <p class="subtitle">Hands-free capture</p>
+        </div>
+        <span class="icon-btn" aria-hidden="true"></span>
+      </header>
+      <p class="hint sweep-setup-copy">Prop the phone at face height, about two feet away. You don’t need to look at the screen — I’ll talk you through each turn and beep when a frame is captured.</p>
+      <div class="settings-card">
+        <h2>Camera</h2>
+        <p class="hint">Rear is sharper if someone else holds the phone, or it’s on a stand. Use the front camera if you’re facing the phone alone.</p>
+        <div class="segmented camera-seg" role="radiogroup" aria-label="Camera">
+          <button type="button" class="seg-btn" data-facing="user" id="sweep-facing-front">Front</button>
+          <button type="button" class="seg-btn is-active" data-facing="environment" id="sweep-facing-rear">Rear</button>
+        </div>
+      </div>
+      <div class="sweep-setup-preview">
+        <video id="sweep-preview" autoplay playsinline muted></video>
+        <p class="hint">Line the phone up once, then start and look at the camera — not the screen.</p>
+      </div>
+      <button type="button" id="btn-sweep-go" class="btn btn-primary btn-block">Start sweep</button>
+    </section>
+
+    <!-- SWEEP RUNNING -->
+    <section class="view view-capture view-sweep" id="view-sweep" data-view="sweep" hidden>
+      <header class="capture-header">
+        <button type="button" class="icon-btn" id="btn-sweep-cancel" aria-label="Cancel">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <div class="capture-titles">
+          <p class="capture-step" id="sweep-step">1 of 6</p>
+          <h1 id="sweep-status">Get ready</h1>
+        </div>
+        <span class="icon-btn" aria-hidden="true"></span>
+      </header>
+      <div class="viewfinder sweep-viewfinder" id="sweep-viewfinder">
+        <video id="sweep-camera" autoplay playsinline muted></video>
+        <div class="sweep-caption">
+          <p id="sweep-detail" class="sweep-detail">Prop the phone and face the camera.</p>
+          <div id="sweep-pips" class="sweep-pips" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SWEEP REVIEW -->
+    <section class="view" id="view-sweep-review" data-view="sweep-review" hidden>
+      <header class="page-header page-header-row">
+        <button type="button" class="icon-btn" id="btn-sweep-review-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <div class="header-titles">
+          <h1>Sweep review</h1>
+          <p class="subtitle" id="sweep-review-meta"></p>
+        </div>
+        <span class="icon-btn" aria-hidden="true"></span>
+      </header>
+      <div id="sweep-fallback-note" class="fallback-banner" hidden>On-device face tracking didn’t load, so frames were chosen by timing, sharpness, and exposure. Swap or retake any angle that looks off.</div>
+      <div id="sweep-review-list" class="sweep-review-list"></div>
+      <label class="notes-label" for="sweep-notes">Notes</label>
+      <textarea id="sweep-notes" class="notes-input" rows="3" placeholder="Treatment, shedding, haircut, lighting…"></textarea>
+      <button type="button" id="btn-sweep-save" class="btn btn-primary btn-block">Save session</button>
     </section>
   </div>
 
