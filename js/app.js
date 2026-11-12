@@ -438,11 +438,24 @@ async function setupGhostAndGuide() {
   }
 }
 
+function streamIsLive(stream) {
+  return !!stream && stream.getVideoTracks().some((t) => t.readyState === "live");
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function startCamera() {
   const video = $("#camera");
   const fallback = $("#camera-fallback");
   fallback.hidden = true;
-  await stopCamera(false);
+  // Fully release the previous stream (including srcObject) before opening
+  // a new one. Android Chrome often keeps showing the last frame — and can
+  // refuse a front/rear switch — if the old tracks are stopped but still
+  // attached to the <video> element.
+  await stopCamera(true, { releaseLock: false });
+  await delay(50);
   const constraints = {
     audio: false,
     video: {
@@ -453,12 +466,18 @@ async function startCamera() {
   };
   try {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("no mediaDevices");
-    state.stream = await navigator.mediaDevices.getUserMedia(constraints);
-    video.srcObject = state.stream;
-    await video.play().catch(() => {});
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    state.stream = stream;
+    video.srcObject = stream;
     video.classList.toggle("is-front", state.facingMode === "user");
     video.hidden = false;
     fallback.hidden = true;
+    try {
+      await video.play();
+    } catch {
+      await delay(50);
+      await video.play();
+    }
   } catch (err) {
     console.warn("Camera unavailable:", err);
     video.hidden = true;
@@ -466,8 +485,8 @@ async function startCamera() {
   }
 }
 
-async function stopCamera(clearVideo = true) {
-  releaseWakeLock();
+async function stopCamera(clearVideo = true, { releaseLock = true } = {}) {
+  if (releaseLock) releaseWakeLock();
   if (state.countdown) {
     clearInterval(state.countdown);
     state.countdown = null;
@@ -481,6 +500,23 @@ async function stopCamera(clearVideo = true) {
     const video = $("#camera");
     video.srcObject = null;
   }
+}
+
+/** Hide the review still and make sure the live preview is playing. */
+async function ensureLivePreview({ restart = false } = {}) {
+  hideReview();
+  const video = $("#camera");
+  const live = !restart && streamIsLive(state.stream) && video.srcObject === state.stream;
+  if (live) {
+    video.hidden = false;
+    try {
+      await video.play();
+    } catch {
+      await startCamera();
+    }
+    return;
+  }
+  await startCamera();
 }
 
 async function flipCamera() {
@@ -566,7 +602,12 @@ async function enterReview(blob, { mirrored = false } = {}) {
 function hideReview() {
   state.reviewing = false;
   state.reviewBlob = null;
-  $("#freeze-canvas").hidden = true;
+  const canvas = $("#freeze-canvas");
+  canvas.hidden = true;
+  const ctx = canvas.getContext("2d");
+  if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.width = 1;
+  canvas.height = 1;
   $("#review-bar").hidden = true;
   $(".capture-dock").hidden = false;
   $("#btn-skip").hidden = false;
@@ -585,7 +626,6 @@ async function keepPhoto() {
       height: compressed.height,
     });
     toast(`${angle.short} saved`);
-    hideReview();
     await gotoNextAngle();
   } catch (err) {
     console.error(err);
@@ -594,7 +634,8 @@ async function keepPhoto() {
 }
 
 async function retake() {
-  hideReview();
+  // Stay on this angle: drop the still and resume the live preview.
+  await ensureLivePreview();
 }
 
 async function skipAngle() {
@@ -603,13 +644,17 @@ async function skipAngle() {
 }
 
 async function gotoNextAngle() {
+  hideReview();
   if (state.captureIndex < ANGLES.length - 1) {
     state.captureIndex += 1;
     const angle = ANGLES[state.captureIndex];
     state.facingMode = angle.facing || "environment";
     renderCaptureChrome();
     await setupGhostAndGuide();
+    // Always restart the stream so a stopped or front/rear-switched camera
+    // comes back as a live preview, not the previous still frame.
     await startCamera();
+    requestWakeLock();
   } else {
     await stopCamera();
     navigate("#/complete");
@@ -905,6 +950,17 @@ function registerSW() {
   navigator.serviceWorker.register(swUrl.href).catch((err) => {
     console.warn("SW registration failed:", err);
   });
+  // Reload once when a new worker takes control so the phone picks up the
+  // bumped cache. Only listen if a worker already controls this page, so
+  // the first install doesn't reload immediately after clients.claim().
+  if (navigator.serviceWorker.controller) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      location.reload();
+    });
+  }
 }
 
 /* ---------- events ---------- */

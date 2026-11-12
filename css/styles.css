@@ -54,6 +54,9 @@ body {
 }
 
 img, video, canvas { max-width: 100%; display: block; }
+/* Author display:block above must not override the hidden attribute,
+   especially the review freeze-frame canvas sitting over the live video. */
+[hidden] { display: none !important; }
 button, select, textarea, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 a { color: inherit; }

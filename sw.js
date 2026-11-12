@@ -1,5 +1,5 @@
 /* Hair Track service worker — cache the app shell for offline use. */
-const CACHE = "hair-track-v1";
+const CACHE = "hair-track-v2";
 const ASSETS = [
   "./",
   "./index.html",

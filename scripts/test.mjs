@@ -102,6 +102,72 @@ async function seed(page, fixtures) {
   }, fixtures);
 }
 
+
+async function previewState(page) {
+  return page.evaluate(() => {
+    const video = document.getElementById("camera");
+    const freeze = document.getElementById("freeze-canvas");
+    const review = document.getElementById("review-bar");
+    const ghost = document.getElementById("ghost");
+    const guide = document.getElementById("guide");
+    const freezeHidden = !freeze || freeze.hidden || freeze.getClientRects().length === 0;
+    const overlay =
+      (ghost && !ghost.hidden && ghost.naturalWidth > 0 && Number(getComputedStyle(ghost).opacity) > 0) ||
+      (guide && !guide.hidden && !!guide.querySelector("svg"));
+    return {
+      step: document.getElementById("capture-step")?.textContent || "",
+      angle: document.getElementById("capture-angle-name")?.textContent || "",
+      videoHidden: !!video?.hidden,
+      paused: !!video?.paused,
+      readyState: video?.readyState ?? 0,
+      hasStream: !!(video && video.srcObject),
+      freezeHidden,
+      reviewHidden: !review || review.hidden,
+      ghost: !!(ghost && !ghost.hidden),
+      guide: !!(guide && !guide.hidden),
+      overlay,
+      live: !!(
+        video &&
+        !video.hidden &&
+        video.srcObject &&
+        !video.paused &&
+        video.readyState >= 2
+      ),
+    };
+  });
+}
+
+async function assertLivePreview(page, pass, label) {
+  try {
+    await page.waitForFunction(() => {
+      const video = document.getElementById("camera");
+      const freeze = document.getElementById("freeze-canvas");
+      const review = document.getElementById("review-bar");
+      const ghost = document.getElementById("ghost");
+      const guide = document.getElementById("guide");
+      const videoLive =
+        video && !video.hidden && video.srcObject && !video.paused && video.readyState >= 2;
+      const freezeGone = !freeze || freeze.hidden || freeze.getClientRects().length === 0;
+      const reviewGone = !review || review.hidden;
+      const overlay =
+        (ghost && !ghost.hidden && ghost.naturalWidth > 0) ||
+        (guide && !guide.hidden && !!guide.querySelector("svg"));
+      return videoLive && freezeGone && reviewGone && overlay;
+    }, { timeout: 10000 });
+    const info = await previewState(page);
+    pass(
+      `live preview at ${label}`,
+      true,
+      `${info.step} ${info.angle}; ghost=${info.ghost} guide=${info.guide}`
+    );
+    return info;
+  } catch (err) {
+    const info = await previewState(page).catch(() => ({}));
+    pass(`live preview at ${label}`, false, JSON.stringify(info));
+    return info;
+  }
+}
+
 async function main() {
   fs.mkdirSync(SCREENSHOTS, { recursive: true });
   const server = await startServer();
@@ -259,11 +325,24 @@ async function main() {
     await page.screenshot({ path: path.join(SCREENSHOTS, "capture-ghost.png"), fullPage: false });
     pass("screenshot capture", fs.existsSync(path.join(SCREENSHOTS, "capture-ghost.png")));
 
-    // Save a new photo from the fake camera, then confirm it appears in the session
+    // Walk the first three angles: each must show a live playing video plus
+    // ghost/guide, not the previous still. Also verify Retake resumes live preview.
+    await assertLivePreview(page, pass, "angle 1");
+    await page.click("#btn-shutter");
+    await page.waitForSelector("#review-bar:not([hidden])", { timeout: 8000 });
+    await page.click("#btn-retake");
+    await assertLivePreview(page, pass, "angle 1 after retake");
     await page.click("#btn-shutter");
     await page.waitForSelector("#review-bar:not([hidden])", { timeout: 8000 });
     await page.click("#btn-keep");
-    await page.waitForTimeout(500);
+    await page.waitForFunction(() => (document.getElementById("capture-step")?.textContent || "").startsWith("2 of"), { timeout: 8000 });
+    await assertLivePreview(page, pass, "angle 2");
+    await page.click("#btn-shutter");
+    await page.waitForSelector("#review-bar:not([hidden])", { timeout: 8000 });
+    await page.click("#btn-keep");
+    await page.waitForFunction(() => (document.getElementById("capture-step")?.textContent || "").startsWith("3 of"), { timeout: 8000 });
+    await assertLivePreview(page, pass, "angle 3");
+
     const saved = await page.evaluate(async () => {
       const HT = window.HairTrack;
       const sessions = await HT.getAllSessions();
@@ -273,7 +352,7 @@ async function main() {
       const photos = await HT.getPhotosForSession(todays.id);
       return { today: true, sessionId: todays.id, count: photos.length, angles: photos.map((p) => p.angleId) };
     });
-    pass("saving a captured photo works", !!(saved.today && saved.count >= 1 && saved.angles.includes("front")), JSON.stringify(saved));
+    pass("saving a captured photo works", !!(saved.today && saved.count >= 2 && saved.angles.includes("front")), JSON.stringify(saved));
 
     // Compare view
     await page.evaluate(() => (location.hash = "#/compare"));
