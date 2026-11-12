@@ -717,17 +717,59 @@ async function main() {
 
     await layoutPage.waitForSelector("#view-sweep-review:not([hidden])", { timeout: 30000 });
     const review = await layoutPage.evaluate(() => {
-      const rows = window.HairTrack.sweep && window.HairTrack.sweep.candidates
-        ? Object.fromEntries(Object.entries(window.HairTrack.sweep.candidates).map(([k, v]) => [k, v.length]))
+      const HT = window.HairTrack;
+      const rows = HT.sweep && HT.sweep.candidates
+        ? Object.fromEntries(Object.entries(HT.sweep.candidates).map(([k, v]) => [k, v.length]))
         : {};
       const cards = document.querySelectorAll("#sweep-review-list .sweep-card").length;
       const imgs = document.querySelectorAll("#sweep-review-list img").length;
-      return { cards, imgs, rows, mediaPipe: window.HairTrack.sweep.mediaPipe };
+      const picks = (HT.sweepPicks ? HT.sweepPicks() : null) || [];
+      const yawByAngle = {};
+      const verified = {};
+      for (const row of (picks.length ? picks : Object.entries(HT.sweep.candidates || {}).map(([angleId, list]) => ({ angleId, list, pick: list?.[0] })))) {
+        yawByAngle[row.angleId] = (row.list || HT.sweep.candidates[row.angleId] || []).map((c) => ({
+          yaw: c.yaw,
+          pitch: c.pitch,
+          verified: !!c.poseVerified,
+        }));
+        verified[row.angleId] = (row.list || HT.sweep.candidates[row.angleId] || []).every((c) => c.poseVerified);
+      }
+      const chosen = {};
+      for (const [id, list] of Object.entries(HT.sweep.candidates || {})) {
+        const idx = HT.sweep.chosen[id] ?? 0;
+        chosen[id] = list[idx]?.yaw ?? null;
+      }
+      return { cards, imgs, rows, mediaPipe: HT.sweep.mediaPipe, yawByAngle, verified, chosen };
     });
     pass(
       "sweep review has 6 angle picks",
       review.cards === 6 && review.imgs >= 6,
-      JSON.stringify(review)
+      JSON.stringify({ cards: review.cards, imgs: review.imgs, rows: review.rows, mediaPipe: review.mediaPipe })
+    );
+
+    const inRange = (yaw, min, max) => typeof yaw === "number" && yaw >= min && yaw <= max;
+    const faceIds = ["front", "left-temple", "right-temple"];
+    const allFaceVerified = faceIds.every((id) => review.verified[id] && (review.yawByAngle[id] || []).length);
+    const rangesOk =
+      inRange(review.chosen.front, -15, 15) &&
+      inRange(review.chosen["left-temple"], 35, 55) &&
+      inRange(review.chosen["right-temple"], -55, -35);
+    const distinct =
+      Math.abs((review.chosen["left-temple"] ?? 0) - (review.chosen.front ?? 0)) >= 20 &&
+      Math.abs((review.chosen["right-temple"] ?? 0) - (review.chosen.front ?? 0)) >= 20 &&
+      Math.sign(review.chosen["left-temple"]) !== Math.sign(review.chosen["right-temple"]);
+    const noWrongPose = faceIds.every((id) =>
+      (review.yawByAngle[id] || []).every((c) => {
+        if (!c.verified) return false;
+        if (id === "front") return inRange(c.yaw, -15, 15);
+        if (id === "left-temple") return inRange(c.yaw, 35, 55);
+        return inRange(c.yaw, -55, -35);
+      })
+    );
+    pass(
+      "face-angle picks come from distinct pose-verified yaw ranges",
+      allFaceVerified && rangesOk && distinct && noWrongPose,
+      JSON.stringify({ chosen: review.chosen, verified: review.verified, yawByAngle: review.yawByAngle })
     );
 
     // Swap a candidate if more than one exists, then save.

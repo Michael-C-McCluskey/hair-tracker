@@ -256,10 +256,18 @@
       </header>
       <div class="viewfinder sweep-viewfinder" id="sweep-viewfinder">
         <video id="sweep-camera" autoplay playsinline muted></video>
+        <div id="sweep-guide" class="sweep-guide" hidden>
+          <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" fill="none" aria-hidden="true">
+            <ellipse cx="50" cy="68" rx="28" ry="38"/>
+            <line x1="50" y1="28" x2="50" y2="36"/>
+          </svg>
+        </div>
+        <div id="sweep-flash" class="sweep-flash" hidden></div>
         <p id="sweep-camera-error" class="fallback-banner sweep-cam-error" hidden></p>
         <div class="sweep-caption">
           <p id="sweep-detail" class="sweep-detail">Prop the phone and face the camera.</p>
           <div id="sweep-pips" class="sweep-pips" aria-hidden="true"></div>
+          <button type="button" id="btn-sweep-skip" class="btn btn-secondary sweep-skip" hidden>Skip this angle</button>
         </div>
       </div>
     </section>
@@ -276,7 +284,7 @@
         </div>
         <span class="icon-btn" aria-hidden="true"></span>
       </header>
-      <div id="sweep-fallback-note" class="fallback-banner" hidden>On-device face tracking didn’t load, so frames were chosen by timing, sharpness, and exposure. Swap or retake any angle that looks off.</div>
+      <div id="sweep-fallback-note" class="fallback-banner" hidden>On-device face tracking didn’t load, so I couldn’t confirm your head position. Swap or retake any angle that looks off.</div>
       <div id="sweep-review-list" class="sweep-review-list"></div>
       <label class="notes-label" for="sweep-notes">Notes</label>
       <textarea id="sweep-notes" class="notes-input" rows="3" placeholder="Treatment, shedding, haircut, lighting…"></textarea>

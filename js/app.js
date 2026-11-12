@@ -29,6 +29,7 @@ import {
   runSweep,
   retakeSweepAngle,
   cancelSweep,
+  requestSkip,
   picks as sweepPicks,
   cycleCandidate,
   saveSweepPhotos,
@@ -1247,6 +1248,7 @@ function bindEvents() {
     cancelSweep();
     navigate("#/home");
   });
+  $("#btn-sweep-skip")?.addEventListener("click", () => requestSkip());
   $("#btn-sweep-review-close").addEventListener("click", () => navigate("#/home"));
   $("#btn-sweep-save").addEventListener("click", () => saveSweepSession());
   $("#btn-other-date").addEventListener("click", () => {
@@ -1381,6 +1383,8 @@ window.HairTrack = {
   setSetting,
   getPhotosForSession,
   sweep,
+  requestSkip,
+  sweepPicks,
   beginSweep,
   setSweepFacing,
   startSweepPreview,

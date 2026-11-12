@@ -784,6 +784,45 @@ input[type="range"] {
   object-fit: cover;
 }
 .sweep-viewfinder video.is-front { transform: scaleX(-1); }
+.sweep-guide {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sweep-guide[hidden] { display: none !important; }
+.sweep-guide svg {
+  width: 62%;
+  height: 72%;
+  stroke: rgba(255, 255, 255, 0.78);
+  stroke-width: 1.8;
+  fill: none;
+  transition: stroke 0.18s ease, stroke-width 0.18s ease;
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.55));
+}
+.sweep-guide.is-good svg {
+  stroke: #7dce8a;
+  stroke-width: 2.5;
+}
+.sweep-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: rgba(125, 206, 138, 0.4);
+  opacity: 0;
+  transition: opacity 70ms linear;
+}
+.sweep-flash[hidden] { display: none !important; }
+.sweep-flash.is-on { opacity: 1; }
+.sweep-skip {
+  margin: 14px auto 0;
+  min-width: 160px;
+}
+.sweep-skip[hidden] { display: none !important; }
 .sweep-caption {
   position: absolute;
   left: 0; right: 0; bottom: 0;
