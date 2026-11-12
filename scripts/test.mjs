@@ -388,6 +388,172 @@ async function main() {
     const cells = await page.$$eval("#session-grid .cell img", (els) => els.length);
     pass("session detail shows photos", cells >= 6, `${cells} images`);
 
+    // Layout + per-angle guides at a Pixel-with-nav-bar viewport, then a short one.
+    const layoutPage = await (async () => {
+      const ctx = await browser.newContext({
+        viewport: { width: 412, height: 780 },
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+        userAgent:
+          "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        colorScheme: "dark",
+      });
+      await ctx.addInitScript(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 720;
+        canvas.height = 1280;
+        const c = canvas.getContext("2d");
+        const draw = () => {
+          c.fillStyle = "#241c18";
+          c.fillRect(0, 0, 720, 1280);
+          c.fillStyle = "#4a342c";
+          c.beginPath();
+          c.ellipse(360, 620, 170, 230, 0, 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = "#c4a080";
+          c.beginPath();
+          c.ellipse(360, 470, 175, 90, 0, Math.PI, Math.PI * 2, true);
+          c.fill();
+        };
+        draw();
+        const stream = canvas.captureStream(12);
+        if (navigator.mediaDevices) {
+          navigator.mediaDevices.getUserMedia = async () => stream;
+        }
+      });
+      const p2 = await ctx.newPage();
+      p2.on("pageerror", (err) => errors.push(`layout pageerror: ${err.message}`));
+      return p2;
+    })();
+
+    await layoutPage.goto(BASE + "/", { waitUntil: "networkidle" });
+    await layoutPage.waitForFunction(() => document.documentElement.dataset.ready === "1", { timeout: 15000 });
+    await seed(layoutPage, fixtures);
+    await layoutPage.evaluate(() => {
+      sessionStorage.setItem("showGuide", "1");
+      location.hash = "#/home";
+    });
+    await layoutPage.waitForTimeout(200);
+    await layoutPage.click("#btn-start-session");
+    await layoutPage.waitForSelector("#view-capture:not([hidden])", { timeout: 8000 });
+    await layoutPage.waitForFunction(() => document.querySelector("#guide svg[data-angle]"), { timeout: 8000 });
+
+    const controlsVisible = async (label) => {
+      const info = await layoutPage.evaluate(() => {
+        const vh = window.innerHeight;
+        const vw = window.innerWidth;
+        return ["btn-flip", "btn-shutter", "btn-timer", "btn-choose-file", "btn-guide"].map((id) => {
+          const el = document.getElementById(id);
+          if (!el) return { id, missing: true };
+          const r = el.getBoundingClientRect();
+          const visible =
+            r.width > 0 &&
+            r.height > 0 &&
+            r.top >= 0 &&
+            r.left >= 0 &&
+            r.bottom <= vh + 0.5 &&
+            r.right <= vw + 0.5;
+          return { id, visible, bottom: Math.round(r.bottom), top: Math.round(r.top), vh, vw };
+        });
+      });
+      const hidden = info.filter((i) => i.missing || !i.visible);
+      const shutter = info.find((i) => i.id === "btn-shutter");
+      pass(
+        `capture controls visible at ${label}`,
+        hidden.length === 0,
+        hidden.length ? JSON.stringify(hidden) : `${shutter?.vw}x${shutter?.vh}, shutter bottom ${shutter?.bottom}`
+      );
+    };
+
+    await controlsVisible("412x780");
+
+    const shotGuide = async (name, angleId, file) => {
+      await layoutPage.waitForFunction(
+        (id) => document.querySelector(`#guide svg[data-angle="${id}"]`) && !document.getElementById("guide")?.hidden,
+        angleId,
+        { timeout: 8000 }
+      );
+      await layoutPage.waitForTimeout(200);
+      await layoutPage.screenshot({ path: path.join(SCREENSHOTS, file), fullPage: false });
+      pass(`screenshot ${file}`, fs.existsSync(path.join(SCREENSHOTS, file)));
+    };
+
+    await shotGuide("Front", "front", "guide-front.png");
+    await layoutPage.click("#btn-skip");
+    await shotGuide("Left temple", "left-temple", "guide-left.png");
+    await layoutPage.click("#btn-skip"); // right
+    await layoutPage.waitForFunction(() => document.querySelector('#guide svg[data-angle="right-temple"]'), { timeout: 8000 });
+    await layoutPage.click("#btn-skip"); // top
+    await layoutPage.waitForFunction(() => document.querySelector('#guide svg[data-angle="top"]'), { timeout: 8000 });
+    await layoutPage.click("#btn-skip"); // crown
+    await shotGuide("Crown", "crown", "guide-crown.png");
+
+    // Unique SVG per angle: reset to the first angle, then skip through all six.
+    const angleOrder = ["front", "left-temple", "right-temple", "top", "crown", "back"];
+    await layoutPage.evaluate(() => {
+      const HT = window.HairTrack;
+      HT.state.captureIndex = 0;
+      if (location.hash !== "#/capture") location.hash = "#/capture";
+      else HT.navigate("#/capture");
+    });
+    await layoutPage.waitForSelector("#view-capture:not([hidden])", { timeout: 8000 });
+    await layoutPage.waitForFunction(
+      () => document.querySelector('#guide svg[data-angle="front"]'),
+      { timeout: 8000 }
+    );
+    const guideMarks = [];
+    for (let i = 0; i < angleOrder.length; i++) {
+      await layoutPage.waitForFunction(
+        (id) => document.querySelector(`#guide svg[data-angle="${id}"]`),
+        angleOrder[i],
+        { timeout: 8000 }
+      );
+      const mark = await layoutPage.evaluate(() => {
+        const svg = document.querySelector("#guide svg");
+        const ghost = document.getElementById("ghost");
+        const guide = document.getElementById("guide");
+        return {
+          angle: svg?.getAttribute("data-angle") || "",
+          markup: svg ? svg.innerHTML : "",
+          guideVisible: !!(guide && !guide.hidden && svg),
+          ghostVisible: !!(ghost && !ghost.hidden),
+          align: document.getElementById("capture-align")?.textContent || "",
+        };
+      });
+      guideMarks.push(mark);
+      if (i < 5) await layoutPage.click("#btn-skip");
+    }
+    const uniqueAngles = new Set(guideMarks.map((m) => m.angle));
+    const uniqueSvg = new Set(guideMarks.map((m) => m.markup));
+    pass(
+      "guide svg unique per angle",
+      uniqueAngles.size === 6 && uniqueSvg.size === 6,
+      guideMarks.map((m) => m.angle).join(", ")
+    );
+    pass(
+      "guide visible together with ghost",
+      guideMarks.every((m) => m.guideVisible && m.ghostVisible),
+      guideMarks.map((m) => `${m.angle}:guide=${m.guideVisible},ghost=${m.ghostVisible}`).join("; ")
+    );
+    pass(
+      "alignment instruction per angle",
+      guideMarks.every((m) => m.align.length > 10) && new Set(guideMarks.map((m) => m.align)).size >= 5,
+      guideMarks.map((m) => m.align.slice(0, 40)).join(" | ")
+    );
+
+    // Guide toggle hides the overlay
+    await layoutPage.click("#btn-guide");
+    const hiddenAfterToggle = await layoutPage.evaluate(() => document.getElementById("guide")?.hidden);
+    pass("guide toggle hides overlay", hiddenAfterToggle === true);
+    await layoutPage.click("#btn-guide");
+    const shownAgain = await layoutPage.evaluate(() => document.getElementById("guide")?.hidden === false);
+    pass("guide toggle shows overlay", shownAgain);
+
+    await layoutPage.setViewportSize({ width: 412, height: 700 });
+    await layoutPage.waitForTimeout(200);
+    await controlsVisible("412x700");
+
     const unexpected = errors.filter((e) => {
       // Benign: some Chrome installs log about service worker cache or DevTools
       if (/Deprecated/i.test(e)) return false;
@@ -410,7 +576,7 @@ async function main() {
   }
   console.log("All checks passed.");
   console.log("Screenshots:");
-  for (const name of ["home.png", "capture-ghost.png", "compare.png"]) {
+  for (const name of ["home.png", "capture-ghost.png", "compare.png", "guide-front.png", "guide-left.png", "guide-crown.png"]) {
     const p = path.join(SCREENSHOTS, name);
     const st = fs.statSync(p);
     console.log(`  ${p}  (${st.size} bytes)`);

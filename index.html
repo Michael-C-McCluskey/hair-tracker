@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
   <meta name="theme-color" content="#0E0C0B">
   <meta name="color-scheme" content="dark">
   <meta name="description" content="Photograph your face and scalp from consistent angles and track hair growth over time. Photos stay on this device.">
@@ -156,6 +156,7 @@
         <button type="button" class="text-btn" id="btn-skip">Skip</button>
       </header>
       <p class="capture-tip" id="capture-tip"></p>
+      <p class="capture-align" id="capture-align"></p>
       <div class="viewfinder" id="viewfinder">
         <video id="camera" autoplay playsinline muted></video>
         <img id="ghost" class="ghost" alt="Previous photo overlay" hidden>
@@ -167,10 +168,16 @@
           <button type="button" id="btn-pick-photo" class="btn btn-primary">Take or choose photo</button>
         </div>
       </div>
-      <div class="capture-dock">
-        <div class="ghost-row" id="ghost-row" hidden>
-          <label class="ghost-label" for="ghost-opacity">Ghost</label>
-          <input type="range" id="ghost-opacity" min="0" max="80" value="40" aria-label="Ghost overlay opacity">
+      <div class="capture-dock" id="capture-dock">
+        <div class="overlay-row">
+          <button type="button" class="guide-toggle is-on" id="btn-guide" aria-pressed="true" aria-label="Toggle alignment guide">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 4v2.5M12 17.5V20M4 12h2.5M17.5 12H20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <span>Guide</span>
+          </button>
+          <div class="ghost-row" id="ghost-row" hidden>
+            <label class="ghost-label" for="ghost-opacity">Ghost</label>
+            <input type="range" id="ghost-opacity" min="0" max="80" value="40" aria-label="Ghost overlay opacity">
+          </div>
         </div>
         <div class="shutter-row">
           <button type="button" class="dock-btn" id="btn-flip" aria-label="Flip camera">
