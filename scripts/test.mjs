@@ -712,8 +712,11 @@ async function main() {
       return v && v.videoWidth > 0 && v.readyState >= 2 && !v.paused;
     }, { timeout: 10000 }).catch(() => {});
     await layoutPage.waitForTimeout(300);
+    await layoutPage.waitForSelector("#sweep-guide:not([hidden])", { timeout: 8000 }).catch(() => {});
     await layoutPage.screenshot({ path: path.join(SCREENSHOTS, "sweep.png"), fullPage: false });
     pass("screenshot sweep.png", fs.existsSync(path.join(SCREENSHOTS, "sweep.png")));
+    await layoutPage.screenshot({ path: path.join(SCREENSHOTS, "sweep-large.png"), fullPage: false });
+    pass("screenshot sweep-large.png", fs.existsSync(path.join(SCREENSHOTS, "sweep-large.png")));
 
     await layoutPage.waitForSelector("#view-sweep-review:not([hidden])", { timeout: 30000 });
     const review = await layoutPage.evaluate(() => {
@@ -888,7 +891,7 @@ async function main() {
   }
   console.log("All checks passed.");
   console.log("Screenshots:");
-  for (const name of ["home.png", "capture-ghost.png", "compare.png", "guide-front.png", "guide-left.png", "guide-crown.png", "sweep.png", "sweep-review.png"]) {
+  for (const name of ["home.png", "capture-ghost.png", "compare.png", "guide-front.png", "guide-left.png", "guide-crown.png", "sweep.png", "sweep-large.png", "sweep-review.png"]) {
     const p = path.join(SCREENSHOTS, name);
     const st = fs.statSync(p);
     console.log(`  ${p}  (${st.size} bytes)`);

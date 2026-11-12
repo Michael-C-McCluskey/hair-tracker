@@ -75,11 +75,15 @@ export const SEGMENTS = [
 ];
 
 const DISTANCE = {
-  minWidth: 0.26,
-  maxWidth: 0.58,
-  cxMin: 0.36,
-  cxMax: 0.64,
-  cyMin: 0.30,
+  // FaceLandmarker box height (forehead-to-chin). Head+hair should fill
+  // roughly 75–85% of the frame, so the face box itself needs to be large.
+  minHeight: 0.55,
+  maxHeight: 0.74,
+  minWidth: 0.28,
+  maxWidth: 0.88,
+  cxMin: 0.32,
+  cxMax: 0.68,
+  cyMin: 0.36,
   cyMax: 0.70,
 };
 
@@ -366,7 +370,7 @@ function poseScore(pose, seg) {
 
 function sizeCenterScore(pose) {
   if (!pose) return 0;
-  const size = Math.max(0, Math.min(1, (pose.faceWidth - 0.18) / 0.42));
+  const size = Math.max(0, Math.min(1, ((pose.faceHeight || pose.faceWidth) - 0.35) / 0.32));
   const center = Math.max(0, 1 - Math.abs(pose.cx - 0.5) * 2.2);
   return size * 0.6 + center * 0.4;
 }
@@ -406,8 +410,9 @@ function facePoseVerified(obs, seg) {
 function distanceStatus(pose) {
   if (!pose) return { ok: false, cues: ["I can't see your face yet. Step into the outline."] };
   const cues = [];
-  if (pose.faceWidth < DISTANCE.minWidth) cues.push("Move closer.");
-  else if (pose.faceWidth > DISTANCE.maxWidth) cues.push("Move back.");
+  const faceH = pose.faceHeight || pose.faceWidth;
+  if (faceH < DISTANCE.minHeight || pose.faceWidth < DISTANCE.minWidth) cues.push("Move closer.");
+  else if (faceH > DISTANCE.maxHeight) cues.push("Move back.");
   // Unmirrored frame: face on the left of the photo (small cx) means the
   // person is too far to their own right, so they should move left.
   if (pose.cx < DISTANCE.cxMin) cues.push("Move left.");
@@ -506,17 +511,19 @@ async function findFacingDeviceId(facing) {
 }
 
 async function constraintAttempts(facing) {
-  const sized = { width: { ideal: 1920 }, height: { ideal: 1440 } };
-  const compact = { width: { ideal: 1280 }, height: { ideal: 960 } };
+  const uhd = { width: { ideal: 3840 }, height: { ideal: 2160 } };
+  const fhd = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+  const fourThree = { width: { ideal: 1920 }, height: { ideal: 1440 } };
   const attempts = [
-    { audio: false, video: { ...sized, facingMode: { ideal: facing } } },
-    { audio: false, video: { ...compact, facingMode: { ideal: facing } } },
+    { audio: false, video: { ...uhd, facingMode: { ideal: facing } } },
+    { audio: false, video: { ...fhd, facingMode: { ideal: facing } } },
+    { audio: false, video: { ...fourThree, facingMode: { ideal: facing } } },
     { audio: false, video: { facingMode: facing } },
   ];
   const deviceId = await findFacingDeviceId(facing);
   if (deviceId) {
-    attempts.push({ audio: false, video: { ...sized, deviceId: { exact: deviceId } } });
-    attempts.push({ audio: false, video: { ...compact, deviceId: { exact: deviceId } } });
+    attempts.push({ audio: false, video: { ...uhd, deviceId: { exact: deviceId } } });
+    attempts.push({ audio: false, video: { ...fhd, deviceId: { exact: deviceId } } });
     attempts.push({ audio: false, video: { deviceId: { exact: deviceId } } });
   }
   return attempts;
@@ -678,10 +685,10 @@ function defaultTestObservation() {
   const good = {
     yaw: 0,
     pitch: 0,
-    faceWidth: 0.4,
-    faceHeight: 0.52,
+    faceWidth: 0.52,
+    faceHeight: 0.64,
     cx: 0.5,
-    cy: 0.48,
+    cy: 0.50,
   };
   const phase = sweep.phase || "";
   if (phase === "distance") {
@@ -704,7 +711,7 @@ function defaultTestObservation() {
   }
   if (phase === "top") {
     if (!settled) return { hasFace: true, pose: { ...good, yaw: 2, pitch: 6 } };
-    return { hasFace: true, pose: { ...good, yaw: 1, pitch: 38, faceWidth: 0.34 } };
+    return { hasFace: true, pose: { ...good, yaw: 1, pitch: 38, faceWidth: 0.48, faceHeight: 0.62 } };
   }
   if (phase === "back" || phase === "crown") {
     if (!settled) return { hasFace: true, pose: { ...good } };

@@ -389,69 +389,83 @@ const GUIDE_STROKE = "rgba(243,237,228,0.9)";
 const GUIDE_DIM = "rgba(243,237,228,0.45)";
 const GUIDE_ACCENT = "rgb(212,165,116)";
 
+const GUIDE_SCALE = "translate(50 69) scale(1.36 1.24) translate(-50 -71)";
+
 const GUIDE = {
-  front: `<svg data-angle="front" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" fill="none">
-    <line x1="14" y1="26" x2="86" y2="26" stroke="${GUIDE_ACCENT}" stroke-width="1.3" stroke-dasharray="2.2 2"/>
-    <line x1="14" y1="26" x2="14" y2="30" stroke="${GUIDE_ACCENT}" stroke-width="1.3"/>
-    <line x1="86" y1="26" x2="86" y2="30" stroke="${GUIDE_ACCENT}" stroke-width="1.3"/>
-    <line x1="14" y1="116" x2="86" y2="116" stroke="${GUIDE_ACCENT}" stroke-width="1.3" stroke-dasharray="2.2 2"/>
-    <line x1="14" y1="112" x2="14" y2="116" stroke="${GUIDE_ACCENT}" stroke-width="1.3"/>
-    <line x1="86" y1="112" x2="86" y2="116" stroke="${GUIDE_ACCENT}" stroke-width="1.3"/>
-    <line x1="50" y1="26" x2="50" y2="116" stroke="${GUIDE_DIM}" stroke-width="1" stroke-dasharray="2 2.5"/>
-    <ellipse cx="50" cy="71" rx="25" ry="45" stroke="${GUIDE_STROKE}" stroke-width="1.6"/>
-    <path d="M28 56c6-16 38-16 44 0" stroke="${GUIDE_ACCENT}" stroke-width="1.5" stroke-linecap="round"/>
-    <line x1="46" y1="44" x2="54" y2="44" stroke="${GUIDE_ACCENT}" stroke-width="1.5" stroke-linecap="round"/>
-    <line x1="30" y1="70" x2="70" y2="70" stroke="${GUIDE_STROKE}" stroke-width="1.2"/>
-    <circle cx="40" cy="70" r="1.4" fill="${GUIDE_STROKE}" stroke="none"/>
-    <circle cx="60" cy="70" r="1.4" fill="${GUIDE_STROKE}" stroke="none"/>
+  front: `<svg data-angle="front" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" fill="none">
+    <g transform="${GUIDE_SCALE}">
+    <line x1="14" y1="26" x2="86" y2="26" stroke="${GUIDE_ACCENT}" stroke-width="1.5" stroke-dasharray="2.2 2"/>
+    <line x1="14" y1="26" x2="14" y2="30" stroke="${GUIDE_ACCENT}" stroke-width="1.5"/>
+    <line x1="86" y1="26" x2="86" y2="30" stroke="${GUIDE_ACCENT}" stroke-width="1.5"/>
+    <line x1="14" y1="116" x2="86" y2="116" stroke="${GUIDE_ACCENT}" stroke-width="1.5" stroke-dasharray="2.2 2"/>
+    <line x1="14" y1="112" x2="14" y2="116" stroke="${GUIDE_ACCENT}" stroke-width="1.5"/>
+    <line x1="86" y1="112" x2="86" y2="116" stroke="${GUIDE_ACCENT}" stroke-width="1.5"/>
+    <line x1="50" y1="26" x2="50" y2="116" stroke="${GUIDE_DIM}" stroke-width="1.2" stroke-dasharray="2 2.5"/>
+    <ellipse cx="50" cy="71" rx="25" ry="45" stroke="${GUIDE_STROKE}" stroke-width="2"/>
+    <path d="M28 56c6-16 38-16 44 0" stroke="${GUIDE_ACCENT}" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="46" y1="44" x2="54" y2="44" stroke="${GUIDE_ACCENT}" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="30" y1="70" x2="70" y2="70" stroke="${GUIDE_STROKE}" stroke-width="1.4"/>
+    <circle cx="40" cy="70" r="1.6" fill="${GUIDE_STROKE}" stroke="none"/>
+    <circle cx="60" cy="70" r="1.6" fill="${GUIDE_STROKE}" stroke="none"/>
+    </g>
   </svg>`,
-  "left-temple": `<svg data-angle="left-temple" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" fill="none">
-    <line x1="16" y1="28" x2="84" y2="28" stroke="${GUIDE_DIM}" stroke-width="1" stroke-dasharray="2.2 2"/>
-    <line x1="16" y1="116" x2="84" y2="116" stroke="${GUIDE_DIM}" stroke-width="1" stroke-dasharray="2.2 2"/>
-    <path d="M66 32c-12-6-28-2-36 16-4 8-6 16-5 24 0 2-6 6-7 12-1 6 2 10 7 14 2 6 4 12 10 18 8 8 20 12 30 8 14-6 22-28 20-48-2-16-8-26-19-44z" stroke="${GUIDE_STROKE}" stroke-width="1.6"/>
-    <path d="M32 68c-4 2-7 8-5 14 3 2 8 2 11-2" stroke="${GUIDE_DIM}" stroke-width="1.1" stroke-linecap="round"/>
-    <line x1="28" y1="66" x2="54" y2="64" stroke="${GUIDE_STROKE}" stroke-width="1.2"/>
-    <circle cx="36" cy="65" r="1.3" fill="${GUIDE_STROKE}" stroke="none"/>
-    <ellipse cx="68" cy="72" rx="5.5" ry="8.5" stroke="${GUIDE_STROKE}" stroke-width="1.3"/>
-    <circle cx="68" cy="72" r="3.2" stroke="${GUIDE_ACCENT}" stroke-width="1.6"/>
-    <circle cx="54" cy="66" r="5.5" stroke="${GUIDE_ACCENT}" stroke-width="1.5"/>
+  "left-temple": `<svg data-angle="left-temple" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" fill="none">
+    <g transform="${GUIDE_SCALE}">
+    <line x1="16" y1="28" x2="84" y2="28" stroke="${GUIDE_DIM}" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+    <line x1="16" y1="116" x2="84" y2="116" stroke="${GUIDE_DIM}" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+    <path d="M66 32c-12-6-28-2-36 16-4 8-6 16-5 24 0 2-6 6-7 12-1 6 2 10 7 14 2 6 4 12 10 18 8 8 20 12 30 8 14-6 22-28 20-48-2-16-8-26-19-44z" stroke="${GUIDE_STROKE}" stroke-width="2"/>
+    <path d="M32 68c-4 2-7 8-5 14 3 2 8 2 11-2" stroke="${GUIDE_DIM}" stroke-width="1.3" stroke-linecap="round"/>
+    <line x1="28" y1="66" x2="54" y2="64" stroke="${GUIDE_STROKE}" stroke-width="1.4"/>
+    <circle cx="36" cy="65" r="1.5" fill="${GUIDE_STROKE}" stroke="none"/>
+    <ellipse cx="68" cy="72" rx="5.5" ry="8.5" stroke="${GUIDE_STROKE}" stroke-width="1.5"/>
+    <circle cx="68" cy="72" r="3.2" stroke="${GUIDE_ACCENT}" stroke-width="1.8"/>
+    <circle cx="54" cy="66" r="5.5" stroke="${GUIDE_ACCENT}" stroke-width="1.7"/>
     <circle cx="54" cy="66" r="1.4" fill="${GUIDE_ACCENT}" stroke="none"/>
+    </g>
   </svg>`,
-  "right-temple": `<svg data-angle="right-temple" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" fill="none">
-    <line x1="16" y1="28" x2="84" y2="28" stroke="${GUIDE_DIM}" stroke-width="1" stroke-dasharray="2.2 2"/>
-    <line x1="16" y1="116" x2="84" y2="116" stroke="${GUIDE_DIM}" stroke-width="1" stroke-dasharray="2.2 2"/>
-    <path d="M34 32c12-6 28-2 36 16 4 8 6 16 5 24 0 2 6 6 7 12 1 6-2 10-7 14-2 6-4 12-10 18-8 8-20 12-30 8C21 118 13 96 15 76 17 60 23 50 34 32z" stroke="${GUIDE_STROKE}" stroke-width="1.6"/>
-    <path d="M68 68c4 2 7 8 5 14-3 2-8 2-11-2" stroke="${GUIDE_DIM}" stroke-width="1.1" stroke-linecap="round"/>
-    <line x1="72" y1="66" x2="46" y2="64" stroke="${GUIDE_STROKE}" stroke-width="1.2"/>
-    <circle cx="64" cy="65" r="1.3" fill="${GUIDE_STROKE}" stroke="none"/>
-    <ellipse cx="32" cy="72" rx="5.5" ry="8.5" stroke="${GUIDE_STROKE}" stroke-width="1.3"/>
-    <circle cx="32" cy="72" r="3.2" stroke="${GUIDE_ACCENT}" stroke-width="1.6"/>
-    <circle cx="46" cy="66" r="5.5" stroke="${GUIDE_ACCENT}" stroke-width="1.5"/>
+  "right-temple": `<svg data-angle="right-temple" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" fill="none">
+    <g transform="${GUIDE_SCALE}">
+    <line x1="16" y1="28" x2="84" y2="28" stroke="${GUIDE_DIM}" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+    <line x1="16" y1="116" x2="84" y2="116" stroke="${GUIDE_DIM}" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+    <path d="M34 32c12-6 28-2 36 16 4 8 6 16 5 24 0 2 6 6 7 12 1 6-2 10-7 14-2 6-4 12-10 18-8 8-20 12-30 8C21 118 13 96 15 76 17 60 23 50 34 32z" stroke="${GUIDE_STROKE}" stroke-width="2"/>
+    <path d="M68 68c4 2 7 8 5 14-3 2-8 2-11-2" stroke="${GUIDE_DIM}" stroke-width="1.3" stroke-linecap="round"/>
+    <line x1="72" y1="66" x2="46" y2="64" stroke="${GUIDE_STROKE}" stroke-width="1.4"/>
+    <circle cx="64" cy="65" r="1.5" fill="${GUIDE_STROKE}" stroke="none"/>
+    <ellipse cx="32" cy="72" rx="5.5" ry="8.5" stroke="${GUIDE_STROKE}" stroke-width="1.5"/>
+    <circle cx="32" cy="72" r="3.2" stroke="${GUIDE_ACCENT}" stroke-width="1.8"/>
+    <circle cx="46" cy="66" r="5.5" stroke="${GUIDE_ACCENT}" stroke-width="1.7"/>
     <circle cx="46" cy="66" r="1.4" fill="${GUIDE_ACCENT}" stroke="none"/>
+    </g>
   </svg>`,
-  top: `<svg data-angle="top" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" fill="none">
-    <ellipse cx="50" cy="78" rx="30" ry="36" stroke="${GUIDE_STROKE}" stroke-width="1.6"/>
-    <line x1="50" y1="52" x2="50" y2="104" stroke="${GUIDE_DIM}" stroke-width="1" stroke-dasharray="2 2.5"/>
-    <line x1="28" y1="78" x2="72" y2="78" stroke="${GUIDE_DIM}" stroke-width="1" stroke-dasharray="2 2.5"/>
-    <circle cx="50" cy="78" r="4" stroke="${GUIDE_ACCENT}" stroke-width="1.5"/>
+  top: `<svg data-angle="top" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" fill="none">
+    <g transform="translate(50 70) scale(1.38 1.32) translate(-50 -78)">
+    <ellipse cx="50" cy="78" rx="30" ry="36" stroke="${GUIDE_STROKE}" stroke-width="2"/>
+    <line x1="50" y1="52" x2="50" y2="104" stroke="${GUIDE_DIM}" stroke-width="1.2" stroke-dasharray="2 2.5"/>
+    <line x1="28" y1="78" x2="72" y2="78" stroke="${GUIDE_DIM}" stroke-width="1.2" stroke-dasharray="2 2.5"/>
+    <circle cx="50" cy="78" r="4" stroke="${GUIDE_ACCENT}" stroke-width="1.7"/>
     <circle cx="50" cy="78" r="1.4" fill="${GUIDE_ACCENT}" stroke="none"/>
     <path d="M50 28l-6 12h4v10h4V40h4z" fill="${GUIDE_ACCENT}" stroke="none"/>
+    </g>
   </svg>`,
-  crown: `<svg data-angle="crown" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" fill="none">
-    <ellipse cx="50" cy="72" rx="32" ry="34" stroke="${GUIDE_STROKE}" stroke-width="1.6"/>
-    <ellipse cx="50" cy="72" rx="22" ry="23" stroke="${GUIDE_DIM}" stroke-width="1" stroke-dasharray="2 2.5"/>
-    <circle cx="50" cy="76" r="9" stroke="${GUIDE_ACCENT}" stroke-width="1.7"/>
+  crown: `<svg data-angle="crown" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" fill="none">
+    <g transform="translate(50 70) scale(1.4 1.38) translate(-50 -72)">
+    <ellipse cx="50" cy="72" rx="32" ry="34" stroke="${GUIDE_STROKE}" stroke-width="2"/>
+    <ellipse cx="50" cy="72" rx="22" ry="23" stroke="${GUIDE_DIM}" stroke-width="1.2" stroke-dasharray="2 2.5"/>
+    <circle cx="50" cy="76" r="9" stroke="${GUIDE_ACCENT}" stroke-width="2"/>
     <circle cx="50" cy="76" r="2.2" fill="${GUIDE_ACCENT}" stroke="none"/>
-    <path d="M50 48v6M50 92v6M24 72h6M70 72h6" stroke="${GUIDE_DIM}" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M50 48v6M50 92v6M24 72h6M70 72h6" stroke="${GUIDE_DIM}" stroke-width="1.3" stroke-linecap="round"/>
+    </g>
   </svg>`,
-  back: `<svg data-angle="back" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" fill="none">
-    <ellipse cx="50" cy="58" rx="26" ry="32" stroke="${GUIDE_STROKE}" stroke-width="1.6"/>
-    <path d="M38 86v18c0 8 24 8 24 0V86" stroke="${GUIDE_STROKE}" stroke-width="1.6" stroke-linecap="round"/>
-    <line x1="34" y1="88" x2="66" y2="88" stroke="${GUIDE_ACCENT}" stroke-width="1.5" stroke-linecap="round"/>
-    <ellipse cx="22" cy="62" rx="5" ry="7.5" stroke="${GUIDE_STROKE}" stroke-width="1.3"/>
-    <ellipse cx="78" cy="62" rx="5" ry="7.5" stroke="${GUIDE_STROKE}" stroke-width="1.3"/>
-    <circle cx="22" cy="62" r="2.6" stroke="${GUIDE_ACCENT}" stroke-width="1.5"/>
-    <circle cx="78" cy="62" r="2.6" stroke="${GUIDE_ACCENT}" stroke-width="1.5"/>
+  back: `<svg data-angle="back" viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" fill="none">
+    <g transform="translate(50 68) scale(1.4 1.32) translate(-50 -70)">
+    <ellipse cx="50" cy="58" rx="26" ry="32" stroke="${GUIDE_STROKE}" stroke-width="2"/>
+    <path d="M38 86v18c0 8 24 8 24 0V86" stroke="${GUIDE_STROKE}" stroke-width="2" stroke-linecap="round"/>
+    <line x1="34" y1="88" x2="66" y2="88" stroke="${GUIDE_ACCENT}" stroke-width="1.8" stroke-linecap="round"/>
+    <ellipse cx="22" cy="62" rx="5" ry="7.5" stroke="${GUIDE_STROKE}" stroke-width="1.5"/>
+    <ellipse cx="78" cy="62" rx="5" ry="7.5" stroke="${GUIDE_STROKE}" stroke-width="1.5"/>
+    <circle cx="22" cy="62" r="2.6" stroke="${GUIDE_ACCENT}" stroke-width="1.7"/>
+    <circle cx="78" cy="62" r="2.6" stroke="${GUIDE_ACCENT}" stroke-width="1.7"/>
+    </g>
   </svg>`,
 };
 
@@ -561,8 +575,8 @@ async function startCamera() {
     audio: false,
     video: {
       facingMode: { ideal: state.facingMode },
-      width: { ideal: 1920 },
-      height: { ideal: 1440 },
+      width: { ideal: 3840 },
+      height: { ideal: 2160 },
     },
   };
   try {

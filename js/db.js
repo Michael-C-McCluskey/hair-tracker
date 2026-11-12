@@ -278,10 +278,10 @@ export async function estimateStorage() {
 }
 
 /**
- * Compress an image blob/file to JPEG, longest edge ~maxEdge.
+ * Compress an image blob/file to JPEG, longest edge ~maxEdge (default 2000).
  * Honors EXIF orientation via createImageBitmap.
  */
-export async function compressImage(source, maxEdge = 1600, quality = 0.85) {
+export async function compressImage(source, maxEdge = 2000, quality = 0.9) {
   let bitmap;
   try {
     bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
@@ -372,7 +372,7 @@ export async function importBackup(file) {
       const raw = await entry.async("blob");
       const type = raw.type && raw.type !== "application/octet-stream" ? raw.type : "image/jpeg";
       const blob = raw.type === type ? raw : new Blob([raw], { type });
-      const compressed = blob.type === "image/jpeg" && (p.width || 0) <= 1600
+      const compressed = blob.type === "image/jpeg" && (p.width || 0) <= 2000
         ? { blob, width: p.width, height: p.height }
         : await compressImage(blob);
       await savePhoto({
