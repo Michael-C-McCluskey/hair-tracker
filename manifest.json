@@ -1,0 +1,48 @@
+{
+  "name": "Hair Track",
+  "short_name": "Hair Track",
+  "description": "Photograph your face and scalp from consistent angles and track hair growth over time. Photos stay on this device.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E0C0B",
+  "theme_color": "#0E0C0B",
+  "lang": "en",
+  "categories": ["health", "lifestyle", "photo"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start session",
+      "short_name": "Capture",
+      "description": "Start a guided photo session",
+      "url": "./#/capture",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

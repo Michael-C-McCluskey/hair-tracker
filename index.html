@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0E0C0B">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Photograph your face and scalp from consistent angles and track hair growth over time. Photos stay on this device.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Hair Track">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Hair Track</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- HOME -->
+    <section class="view" id="view-home" data-view="home" hidden>
+      <header class="page-header">
+        <div class="brand">
+          <img src="icons/icon-192.png" alt="" class="brand-mark" width="40" height="40">
+          <div>
+            <h1 class="brand-name">Hair Track</h1>
+            <p class="tagline">Growth journal</p>
+          </div>
+        </div>
+      </header>
+      <div id="home-reminder" class="reminder-card"></div>
+      <button type="button" id="btn-start-session" class="btn btn-primary btn-block">Start session</button>
+      <p class="alt-date-wrap">
+        <button type="button" id="btn-other-date" class="link-btn">Or log a different date</button>
+      </p>
+      <div id="home-install" class="install-banner" hidden>
+        <div>
+          <strong>Install Hair Track</strong>
+          <p>Add it to your home screen so it opens like an app.</p>
+        </div>
+        <button type="button" id="btn-install" class="btn btn-small">Install</button>
+        <button type="button" id="btn-install-dismiss" class="icon-btn" aria-label="Dismiss">×</button>
+      </div>
+      <section id="home-last-session" class="last-session"></section>
+    </section>
+
+    <!-- TIMELINE -->
+    <section class="view" id="view-timeline" data-view="timeline" hidden>
+      <header class="page-header">
+        <h1>Timeline</h1>
+        <p class="subtitle" id="timeline-count"></p>
+      </header>
+      <div id="timeline-list" class="timeline-list"></div>
+    </section>
+
+    <!-- SESSION DETAIL -->
+    <section class="view" id="view-session" data-view="session" hidden>
+      <header class="page-header page-header-row">
+        <button type="button" class="icon-btn" id="btn-session-back" aria-label="Back">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15.5 5.5 9 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="header-titles">
+          <h1 id="session-title">Session</h1>
+          <p class="subtitle" id="session-meta"></p>
+        </div>
+        <button type="button" class="icon-btn danger-hover" id="btn-session-delete" aria-label="Delete session">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2m-7 0v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </header>
+      <div id="session-grid" class="session-grid"></div>
+      <label class="notes-label" for="session-notes">Notes</label>
+      <textarea id="session-notes" class="notes-input" rows="4" placeholder="Treatment, shedding, haircut, lighting…"></textarea>
+      <button type="button" id="btn-session-continue" class="btn btn-secondary btn-block">Add or retake photos</button>
+    </section>
+
+    <!-- COMPARE -->
+    <section class="view" id="view-compare" data-view="compare" hidden>
+      <header class="page-header">
+        <h1>Compare</h1>
+        <p class="subtitle">Line up the same angle across two dates</p>
+      </header>
+      <div class="compare-controls">
+        <label class="field">
+          <span>Angle</span>
+          <select id="compare-angle"></select>
+        </label>
+        <div class="date-row">
+          <label class="field">
+            <span>Before</span>
+            <select id="compare-date-a"></select>
+          </label>
+          <label class="field">
+            <span>After</span>
+            <select id="compare-date-b"></select>
+          </label>
+        </div>
+        <div class="compare-actions">
+          <button type="button" id="btn-first-latest" class="btn btn-secondary btn-small">First vs latest</button>
+          <div class="segmented" role="tablist" aria-label="Compare mode">
+            <button type="button" class="seg-btn is-active" data-mode="side" id="mode-side">Side by side</button>
+            <button type="button" class="seg-btn" data-mode="slider" id="mode-slider">Slider</button>
+          </div>
+        </div>
+      </div>
+      <div id="compare-stage" class="compare-stage"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings" data-view="settings" hidden>
+      <header class="page-header">
+        <h1>Settings</h1>
+      </header>
+      <div class="settings-stack">
+        <div class="settings-card">
+          <h2>Check-in interval</h2>
+          <p class="hint">You’ll see a reminder on the home screen when this many days have passed.</p>
+          <div class="stepper">
+            <button type="button" id="interval-dec" class="icon-btn stepper-btn" aria-label="Decrease">−</button>
+            <div class="stepper-value"><span id="interval-value">7</span> <span class="stepper-unit">days</span></div>
+            <button type="button" id="interval-inc" class="icon-btn stepper-btn" aria-label="Increase">+</button>
+          </div>
+        </div>
+        <div class="settings-card">
+          <h2>Backup</h2>
+          <p class="hint">Photos never leave this phone unless you export them. Download a zip, or restore one here.</p>
+          <div class="btn-row">
+            <button type="button" id="btn-export" class="btn btn-secondary">Export backup</button>
+            <button type="button" id="btn-import" class="btn btn-secondary">Import backup</button>
+          </div>
+          <input type="file" id="import-file" accept=".zip,application/zip" hidden>
+          <p class="hint" id="storage-usage"></p>
+        </div>
+        <div class="settings-card">
+          <h2>Install on your phone</h2>
+          <p class="hint">In Chrome, open the menu and tap <strong>Install app</strong> or <strong>Add to Home screen</strong>. Hair Track works offline after that. It needs to be served over HTTPS (GitHub Pages works).</p>
+          <button type="button" id="btn-settings-install" class="btn btn-secondary" hidden>Install app</button>
+        </div>
+        <div class="settings-card muted-card">
+          <h2>About</h2>
+          <p class="hint">Hair Track keeps every photo in IndexedDB on this device. There is no account and no cloud upload. Clearing this site’s data in your browser will delete your photos — export a backup first.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CAPTURE (full screen, no tab bar) -->
+    <section class="view view-capture" id="view-capture" data-view="capture" hidden>
+      <header class="capture-header">
+        <button type="button" class="icon-btn" id="btn-capture-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <div class="capture-titles">
+          <p class="capture-step" id="capture-step">1 of 6</p>
+          <h1 id="capture-angle-name">Front / hairline</h1>
+        </div>
+        <button type="button" class="text-btn" id="btn-skip">Skip</button>
+      </header>
+      <p class="capture-tip" id="capture-tip"></p>
+      <div class="viewfinder" id="viewfinder">
+        <video id="camera" autoplay playsinline muted></video>
+        <img id="ghost" class="ghost" alt="Previous photo overlay" hidden>
+        <div id="guide" class="guide" hidden></div>
+        <canvas id="freeze-canvas" class="freeze-canvas" hidden></canvas>
+        <div id="countdown" class="countdown" hidden></div>
+        <div id="camera-fallback" class="camera-fallback" hidden>
+          <p>Camera isn’t available. You can still take or choose a photo.</p>
+          <button type="button" id="btn-pick-photo" class="btn btn-primary">Take or choose photo</button>
+        </div>
+      </div>
+      <div class="capture-dock">
+        <div class="ghost-row" id="ghost-row" hidden>
+          <label class="ghost-label" for="ghost-opacity">Ghost</label>
+          <input type="range" id="ghost-opacity" min="0" max="80" value="40" aria-label="Ghost overlay opacity">
+        </div>
+        <div class="shutter-row">
+          <button type="button" class="dock-btn" id="btn-flip" aria-label="Flip camera">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7 8h10l-2-2M17 16H7l2 2M4 12a8 8 0 0 1 14.6-4.5M20 12a8 8 0 0 1-14.6 4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Flip</span>
+          </button>
+          <button type="button" class="shutter" id="btn-shutter" aria-label="Take photo"></button>
+          <button type="button" class="dock-btn" id="btn-timer" aria-label="Self-timer">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="13" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 13V9M9 4h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <span id="timer-label">Timer</span>
+          </button>
+        </div>
+        <button type="button" class="link-btn choose-link" id="btn-choose-file">Choose a photo instead</button>
+        <input type="file" id="file-input" accept="image/*" hidden>
+        <input type="file" id="file-input-camera" accept="image/*" capture="environment" hidden>
+      </div>
+      <div id="review-bar" class="review-bar" hidden>
+        <button type="button" class="btn btn-secondary" id="btn-retake">Retake</button>
+        <button type="button" class="btn btn-primary" id="btn-keep">Use photo</button>
+      </div>
+    </section>
+
+    <!-- SESSION COMPLETE -->
+    <section class="view" id="view-complete" data-view="complete" hidden>
+      <header class="page-header">
+        <h1>Session saved</h1>
+        <p class="subtitle" id="complete-meta"></p>
+      </header>
+      <div id="complete-thumbs" class="session-grid"></div>
+      <label class="notes-label" for="complete-notes">Notes for this session</label>
+      <textarea id="complete-notes" class="notes-input" rows="3" placeholder="Treatment, shedding, haircut, lighting…"></textarea>
+      <button type="button" id="btn-complete-done" class="btn btn-primary btn-block">Done</button>
+    </section>
+  </div>
+
+  <nav class="tabbar" id="tabbar">
+    <a href="#/home" class="tab" data-nav="home">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4.5 11.5 12 5l7.5 6.5V20a1 1 0 0 1-1 1h-5v-6h-3v6h-5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      Home
+    </a>
+    <a href="#/timeline" class="tab" data-nav="timeline">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      Timeline
+    </a>
+    <a href="#/compare" class="tab" data-nav="compare">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3.5" y="6" width="7.5" height="12" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13" y="6" width="7.5" height="12" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+      Compare
+    </a>
+    <a href="#/settings" class="tab" data-nav="settings">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.5v2.2M12 18.3v2.2M4.7 7.2l1.9 1.1M17.4 15.7l1.9 1.1M4.7 16.8l1.9-1.1M17.4 8.3l1.9-1.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      Settings
+    </a>
+  </nav>
+
+  <div id="lightbox" class="lightbox" hidden>
+    <button type="button" class="icon-btn lightbox-close" id="lightbox-close" aria-label="Close">×</button>
+    <img id="lightbox-img" alt="">
+    <p id="lightbox-caption"></p>
+  </div>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2 id="modal-title"></h2>
+      <p id="modal-body"></p>
+      <div class="btn-row">
+        <button type="button" class="btn btn-secondary" id="modal-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="modal-ok">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <input type="date" id="date-picker" class="sr-date">
+
+  <script src="vendor/jszip.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
